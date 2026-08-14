@@ -1,9 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { GATE_PASSWORD_ENV } from "../lib/gate";
 import { identity } from "../lib/identity";
 import RootLayout, { metadata } from "./layout";
 import robots from "./robots";
 import sitemap from "./sitemap";
+
+const GATE_PASSWORD = "press-preview-2026";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.resetModules();
+});
+
+function firstRule(rules: ReturnType<typeof robots>["rules"]) {
+  return Array.isArray(rules) ? rules[0] : rules;
+}
 
 function verifySitemap() {
   const entries = sitemap();
@@ -24,9 +36,25 @@ describe("public SEO metadata", () => {
   });
 
   it("allows public indexing of the press site", () => {
-    const rules = robots().rules;
-    const publicRule = Array.isArray(rules) ? rules[0] : rules;
+    const publicRule = firstRule(robots().rules);
     expect(publicRule?.allow).toBe("/");
+    expect(robots().sitemap).toBe(`${identity.siteUrl}/sitemap.xml`);
+    expect(metadata.robots).toEqual({ index: true, follow: true });
+  });
+
+  it("disallows every crawler while the password gate is on", () => {
+    vi.stubEnv(GATE_PASSWORD_ENV, GATE_PASSWORD);
+    const gatedRule = firstRule(robots().rules);
+    expect(gatedRule?.disallow).toBe("/");
+    expect(gatedRule?.allow).toBeUndefined();
+    expect(robots().sitemap).toBeUndefined();
+  });
+
+  it("marks the gated site noindex in the document metadata", async () => {
+    vi.stubEnv(GATE_PASSWORD_ENV, GATE_PASSWORD);
+    vi.resetModules();
+    const gated = await import("./layout");
+    expect(gated.metadata.robots).toEqual({ index: false, follow: false });
   });
 
   it("defines canonical social metadata", () => {

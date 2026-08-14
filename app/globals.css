@@ -1494,3 +1494,89 @@ th {
     padding-top: 6rem;
   }
 }
+
+/* Password gate — the unlock screen replaces the site chrome entirely. */
+body:has(.unlock-page) .masthead,
+body:has(.unlock-page) .site-footer,
+body:has(.unlock-page) .skip-link {
+  display: none;
+}
+
+body:has(.unlock-page) .site-main {
+  padding: 0;
+}
+
+.unlock-page {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: var(--gutter);
+}
+
+.unlock-card {
+  width: min(28rem, 100%);
+  display: grid;
+  justify-items: start;
+  gap: 0.35rem;
+  padding: 2.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--white);
+}
+
+.unlock-card h1 {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 1.9rem);
+  line-height: 1.2;
+}
+
+.unlock-card .jasper-seal {
+  justify-self: center;
+  margin-bottom: 1.25rem;
+}
+
+.unlock-card .eyebrow {
+  margin: 0;
+}
+
+.unlock-card__intro {
+  margin: 0.5rem 0 0;
+  color: var(--muted-foreground);
+}
+
+.unlock-form {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  margin-top: 1.75rem;
+}
+
+.unlock-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.unlock-form input {
+  font: inherit;
+  padding: 0.7rem 0.75rem;
+  border: 0;
+  border-bottom: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  border-radius: 0;
+}
+
+.unlock-form button {
+  justify-self: center;
+}
+
+.unlock-form button[disabled] {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.unlock-card .form-note {
+  margin-top: 1.5rem;
+  font-size: 0.875rem;
+}
