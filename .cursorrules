@@ -1,0 +1,25 @@
+# MANDATORY POINTER — Do not use this file as the full rulebook
+
+Cursor agents MUST follow the rigid compliance stack:
+
+1. `AGENTS.md` — entrypoint
+2. `.cursor/rules/*.mdc` — always-on enforceable rules (source of truth)
+3. `.compliance/PROTOCOL.md` — required phases + hard stops
+4. `.compliance/ledger.json` — machine-readable gates
+5. `docs/TESTING_GUIDE.md` — Moloch testing methodology
+6. `.compliance/feature-checklist.md` — per-feature Moloch checklist
+
+## Hard rules (summary)
+
+- No declaring done without `ready_to_declare_done: true`
+- No git commit/push until verification gates pass (hooks deny)
+- Moloch 8-point checklist required for every feature
+- Proof required: show command output; never say "should work"
+
+## Check
+
+```bash
+node .compliance/check-ledger.mjs
+```
+
+Imported GrowLink prose remains under `docs/`, `START_HERE.md`, and `MANDATORY_WORKFLOW.md` for reference. Enforcement is the compliance stack above — follow it rigidly.

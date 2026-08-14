@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graffiti-creative-group.local/compliance/ledger.schema.json",
+  "title": "ComplianceLedger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "session_id",
+    "updated_at",
+    "docs_acked",
+    "code_dirty",
+    "dirty_files",
+    "build",
+    "tests",
+    "moloch_checklist",
+    "runtime_verify",
+    "notes",
+    "ready_to_commit",
+    "ready_to_declare_done"
+  ],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "session_id": { "type": ["string", "null"] },
+    "updated_at": { "type": ["string", "null"] },
+    "docs_acked": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "code_dirty": { "type": "boolean" },
+    "dirty_files": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ran", "passed", "command", "at", "na"],
+      "properties": {
+        "ran": { "type": "boolean" },
+        "passed": { "type": "boolean" },
+        "command": { "type": ["string", "null"] },
+        "at": { "type": ["string", "null"] },
+        "na": { "type": "boolean" }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ran", "passed", "command", "at", "files"],
+      "properties": {
+        "ran": { "type": "boolean" },
+        "passed": { "type": "boolean" },
+        "command": { "type": ["string", "null"] },
+        "at": { "type": ["string", "null"] },
+        "files": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "moloch_checklist": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "happy",
+        "validation",
+        "access",
+        "boundary",
+        "verification_fn",
+        "dry_setup",
+        "unique_errors",
+        "path_coverage"
+      ],
+      "properties": {
+        "happy": { "type": "boolean" },
+        "validation": { "type": "boolean" },
+        "access": { "type": "boolean" },
+        "boundary": { "type": "boolean" },
+        "verification_fn": { "type": "boolean" },
+        "dry_setup": { "type": "boolean" },
+        "unique_errors": { "type": "boolean" },
+        "path_coverage": { "type": "boolean" }
+      }
+    },
+    "runtime_verify": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ran", "passed", "method", "note", "at"],
+      "properties": {
+        "ran": { "type": "boolean" },
+        "passed": { "type": "boolean" },
+        "method": { "type": ["string", "null"] },
+        "note": { "type": ["string", "null"] },
+        "at": { "type": ["string", "null"] }
+      }
+    },
+    "notes": { "type": "string" },
+    "ready_to_commit": { "type": "boolean" },
+    "ready_to_declare_done": { "type": "boolean" }
+  }
+}

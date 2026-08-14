@@ -1,0 +1,29 @@
+---
+description: Moloch-inspired testing gates — mandatory for all features
+alwaysApply: true
+---
+
+# Moloch Testing (ALWAYS)
+
+Full guide: `docs/TESTING_GUIDE.md`. Before done, all 8 ledger `moloch_checklist` items must be true.
+
+## Required for each function/feature
+
+1. **Happy path** test(s)
+2. **Validation failures** — one test per require/validation; change ONLY one input from happy case
+3. **Access control** tests when auth/roles apply (else document `N/A` in checklist notes)
+4. **Boundaries** — 0, 1, MAX-1, MAX when numeric/limits apply
+5. **Verification helper** — reusable state checks (not only scattered expects)
+6. **DRY setup** — factories / shared helpers
+7. **Unique error messages** — assert the specific failure reason
+8. **Path coverage** — every branch of touched logic
+
+## Test order
+
+Happy → validation fails → access → boundaries → edge cases.
+
+## Never
+
+- Ship code with zero tests for new logic
+- Use generic identical error strings for different failures
+- Skip the checklist because the change "is small"

@@ -1,0 +1,24 @@
+---
+description: Rigid compliance protocol — ledger gates before done/commit
+alwaysApply: true
+---
+
+# Compliance Protocol (ALWAYS)
+
+You are bound by `.compliance/PROTOCOL.md`. Chat claims are not evidence.
+
+## Required every coding session
+
+1. Read `.compliance/PROTOCOL.md` and update `.compliance/ledger.json` `docs_acked`.
+2. For each feature, copy/fill `.compliance/feature-checklist.md`.
+3. After each phase, update the ledger. Run `node .compliance/check-ledger.mjs`.
+4. Do **not** declare done unless ledger `ready_to_declare_done` is true.
+5. Do **not** `git commit` / `git push` until `ready_to_commit` is true (hooks deny otherwise).
+
+## End every feature with a Compliance Report
+
+Include: docs acked, build result, test result, Moloch 8/8, runtime proof or `N/A: reason`, and ledger ready flag.
+
+## Forbidden without ledger evidence
+
+- "should work" / "LGTM" / "tests later" / "skipped for speed"

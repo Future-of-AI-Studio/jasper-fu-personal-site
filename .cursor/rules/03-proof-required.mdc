@@ -1,0 +1,27 @@
+---
+description: Require command-output proof before success claims
+alwaysApply: true
+---
+
+# Proof Required (ALWAYS)
+
+Success language is banned without evidence in this turn.
+
+## Required proof
+
+- Paste or summarize real command output for build/test/curl/browser checks.
+- Update `.compliance/ledger.json` (hooks also record shell evidence).
+- Run `node .compliance/check-ledger.mjs` before claiming done.
+
+## Allowed success phrasing
+
+- "Verified: `npm test` passed (N tests)"
+- "Verified: HTTP 200 from `curl …`"
+- "Ledger ready_to_declare_done: true"
+
+## Banned without proof
+
+- "should work now"
+- "this fixes it"
+- "tests can wait"
+- "looks good" / "LGTM"

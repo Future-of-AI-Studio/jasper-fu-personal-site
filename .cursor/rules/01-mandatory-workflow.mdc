@@ -1,0 +1,23 @@
+---
+description: Mandatory minimal-change build-verify workflow
+alwaysApply: true
+---
+
+# Mandatory Workflow (ALWAYS)
+
+For every feature/change:
+
+1. Write minimal code (prefer 1–2 files).
+2. Build immediately when a build script exists (`npm run build`).
+3. Fix errors now — do not accumulate failures.
+4. Verify with tests and/or curl/browser — show output proof.
+5. Only then move to the next feature.
+
+## Absolute prohibitions
+
+- Do not build many files before first verification.
+- Do not assume success without running commands.
+- Do not tell the user it "should work" — say what you verified and show proof.
+- Do not skip build/test when `package.json` defines those scripts.
+
+Imported detail docs: `MANDATORY_WORKFLOW.md`, `docs/CURSOR_BEST_PRACTICES.md`, `docs/DEVELOPMENT_PRACTICES.md`.
