@@ -656,3 +656,33 @@ Source: [`docs/TESTING_GUIDE.md`](../docs/TESTING_GUIDE.md) Quick Reference.
 
 
 
+
+---
+
+## Feature: Password-gated landing page
+
+**Paths / functions touched:** `lib/gate.ts`, `proxy.ts`, `app/api/unlock/route.ts`, `app/unlock/page.tsx`, `components/gate/unlock-form.tsx`, `app/robots.ts`, `app/layout.tsx`, `app/globals.css`, `e2e/public-routes.spec.ts`
+
+- [x] Happy path — correct password issues a signed cookie and lands the visitor on the page they requested
+- [x] Validation failures — missing / non-string / over-long password, malformed JSON body, relative gate path, and unusable SITE_PASSWORD each throw or return a distinct error
+- [x] Access control — no cookie, expired cookie, tampered signature, extended-expiry replay, cookie signed with a rotated password, and the wrong password at the endpoint are all refused
+- [x] Boundary conditions — password 8 / 199 / 200 / 201 chars; token accepted at expiry-1ms and refused at expiry and expiry-1ms-past; submitted password 1 / MAX-1 / MAX
+- [x] Verification function — `verifyEnabledConfig` / `verifyDisabledConfig` / `verifyTokenAccepted` / `verifyTokenRejected` / `verifyGated` / `verifyAllowed` / `verifyUnlocked` / `verifyRejected` / `verifyGateScreen` / `verifyUnlockRequest`
+- [x] DRY setup — `makeEnv` / `makeToken` / `makeRequest` / `enableGate` / `renderForm` / `renderUnlockPage` / `jsonResponse`
+- [x] Unique error messages — min vs max site password; gate path required vs must start with a slash; password required vs too long; token needs a password vs expiry must be a positive integer; wrong password vs gate not enabled vs body not JSON
+- [x] Path coverage — gate off and on; bypass list vs gated routes; open-redirect rejection in lib, endpoint, form, and page; robots allow vs disallow; layout index vs noindex; form pending, network failure, and unexplained failure branches
+
+---
+
+## Feature: Unlock screen chrome — no page background, centred seal and CTA
+
+**Paths / functions touched:** `app/globals.css`, `lib/identity-css.test.ts`, `components/gate/unlock-form.test.tsx`
+
+- [x] Happy path — `.unlock-page` paints no background of its own; seal and View site button are `justify-self: center`
+- [x] Validation failures — missing unlock page rule, a painted background, an off-centre seal, and an off-centre button each throw distinct errors
+- [x] Access control — N/A: presentational CSS on the gate screen; the gate's own auth coverage is unchanged
+- [x] Boundary conditions — card keeps `justify-items: start` so only the seal and button re-centre; `min-height: 100dvh` retained
+- [x] Verification function — `verifyUnlockScreenChrome` / `parseUnlockChrome`
+- [x] DRY setup — `unlockPageBlock` / `unlockCardBlock` / `unlockSealBlock` / `unlockButtonBlock`
+- [x] Unique error messages — page rule required vs must not paint its own background vs seal must be centred vs button must be centred
+- [x] Path coverage — served stylesheet re-checked over curl; `background: var(--paper)` gone; copy stays left-aligned

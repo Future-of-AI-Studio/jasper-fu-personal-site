@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { SiteShell } from "../components/site/site-shell";
+import { isGateEnabled } from "../lib/gate";
 import { identity } from "../lib/identity";
 import "./globals.css";
+
+const indexable = !isGateEnabled();
 
 export const metadata: Metadata = {
   metadataBase: new URL(identity.siteUrl),
@@ -32,8 +35,8 @@ export const metadata: Metadata = {
       "Press, speaking, and media resources for Jasper Fu, co-founder and CEO of Coinsub.",
   },
   robots: {
-    index: true,
-    follow: true,
+    index: indexable,
+    follow: indexable,
   },
 };
 

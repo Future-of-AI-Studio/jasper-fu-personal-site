@@ -775,3 +775,90 @@ describe("visual identity in CSS", () => {
     ).toThrow("Contact title max font-size must fit the routing column");
   });
 });
+
+function unlockPageBlock(source = css) {
+  return source.match(/\.unlock-page\s*\{[^}]+\}/)?.[0] ?? "";
+}
+
+function unlockSealBlock(source = css) {
+  return source.match(/\.unlock-card \.jasper-seal\s*\{[^}]+\}/)?.[0] ?? "";
+}
+
+function unlockButtonBlock(source = css) {
+  return source.match(/\.unlock-form button\s*\{[^}]+\}/)?.[0] ?? "";
+}
+
+function parseUnlockChrome(source: string) {
+  const page = unlockPageBlock(source);
+  if (!page.trim()) {
+    throw new Error("Unlock page rule is required");
+  }
+  if (/background/.test(page)) {
+    throw new Error("Unlock page must not paint its own background");
+  }
+
+  const seal = unlockSealBlock(source);
+  if (!seal.includes("justify-self: center")) {
+    throw new Error("Unlock seal must be centred");
+  }
+
+  const button = unlockButtonBlock(source);
+  if (!button.includes("justify-self: center")) {
+    throw new Error("Unlock button must be centred");
+  }
+
+  return { page, seal, button };
+}
+
+function verifyUnlockScreenChrome(source = css) {
+  const { page, seal, button } = parseUnlockChrome(source);
+  expect(page).toContain("place-items: center");
+  expect(page).toContain("min-height: 100dvh");
+  expect(page).not.toContain(`background: var(--paper)`);
+  expect(seal).toContain("justify-self: center");
+  expect(button).toContain("justify-self: center");
+  expect(button).not.toContain("justify-self: start");
+  expect(unlockCardBlock(source)).toContain("justify-items: start");
+}
+
+function unlockCardBlock(source = css) {
+  return source.match(/\.unlock-card\s*\{[^}]+\}/)?.[0] ?? "";
+}
+
+describe("unlock screen chrome", () => {
+  it("lets the site background show through and centres the seal and button", () => {
+    verifyUnlockScreenChrome();
+  });
+
+  it("keeps the gate copy left-aligned inside the card", () => {
+    expect(unlockCardBlock()).toContain("justify-items: start");
+  });
+
+  it("rejects a missing unlock page rule", () => {
+    expect(() => parseUnlockChrome(".unlock-card { gap: 1rem; }")).toThrow(
+      "Unlock page rule is required",
+    );
+  });
+
+  it("rejects a painted unlock background", () => {
+    expect(() =>
+      parseUnlockChrome(".unlock-page { background: var(--paper); }"),
+    ).toThrow("Unlock page must not paint its own background");
+  });
+
+  it("rejects an off-centre seal", () => {
+    expect(() =>
+      parseUnlockChrome(
+        ".unlock-page { place-items: center; } .unlock-card .jasper-seal { justify-self: start; }",
+      ),
+    ).toThrow("Unlock seal must be centred");
+  });
+
+  it("rejects an off-centre button", () => {
+    expect(() =>
+      parseUnlockChrome(
+        ".unlock-page { place-items: center; } .unlock-card .jasper-seal { justify-self: center; } .unlock-form button { justify-self: start; }",
+      ),
+    ).toThrow("Unlock button must be centred");
+  });
+});
