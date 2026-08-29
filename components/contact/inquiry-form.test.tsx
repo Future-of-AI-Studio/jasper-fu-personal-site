@@ -89,6 +89,57 @@ describe("InquiryForm", () => {
     ).toContain(encodeURIComponent("Request Media Kit — NASDAQ"));
   });
 
+  it("hides the type picker and Calendly on a dedicated request", () => {
+    const { container } = render(
+      <InquiryForm
+        defaultType={MEDIA_KIT_INQUIRY_TYPE}
+        showScheduling={false}
+        types={[MEDIA_KIT_INQUIRY_TYPE]}
+      />,
+    );
+
+    // A single offered type is not a choice: no select, but the value still
+    // travels with the submission.
+    expect(container.querySelector("select")).toBeNull();
+    expect(screen.queryByLabelText("Inquiry type")).toBeNull();
+    expect(screen.queryByRole("option", { name: "Interview request" })).toBeNull();
+    const hidden = container.querySelector<HTMLInputElement>(
+      'input[type="hidden"][name="inquiryType"]',
+    );
+    expect(hidden?.value).toBe(MEDIA_KIT_INQUIRY_TYPE);
+
+    // Calendly books a conversation, which requesting a kit does not need.
+    expect(document.querySelector("[data-calendly-block]")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open Calendly" })).toBeNull();
+    expect(screen.queryByText(PUBLISHED_CALENDLY_PROMPT)).toBeNull();
+    // The rest of the form is untouched.
+    expect(screen.getByRole("button", { name: SEND_REQUEST_CTA })).toBeTruthy();
+    expect(screen.getByText(PUBLISHED_RESPONSE_TIME_NOTE)).toBeTruthy();
+  });
+
+  it("still routes the hidden type when the picker is not shown", async () => {
+    render(
+      <InquiryForm
+        defaultType={MEDIA_KIT_INQUIRY_TYPE}
+        showScheduling={false}
+        types={[MEDIA_KIT_INQUIRY_TYPE]}
+      />,
+    );
+    await fillHappyPath();
+    expect(
+      screen.getByRole("link", { name: "Open email to send" }).getAttribute("href"),
+    ).toContain(encodeURIComponent("Request Media Kit — NASDAQ"));
+  });
+
+  it("offers Cancel beside submit only when a cancel action is given", () => {
+    const cancelled: string[] = [];
+    const { rerender } = render(<InquiryForm />);
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+
+    rerender(<InquiryForm onCancel={() => cancelled.push("closed")} />);
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
+  });
+
   it("surfaces a unique name error on the name field, not under Calendly", async () => {
     const user = userEvent.setup();
     render(<InquiryForm />);

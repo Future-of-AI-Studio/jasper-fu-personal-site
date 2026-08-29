@@ -16,7 +16,10 @@ const ERROR_FIELDS: Record<string, keyof SpeakingBookingDraft> = {
   "Please select a valid engagement type": "engagementType",
   "Event name is required": "eventName",
   "Event name is too long": "eventName",
-  "Date is too long": "date",
+  "Start date must be a valid date": "startDate",
+  "Start date is required with an end date": "startDate",
+  "End date must be a valid date": "endDate",
+  "End date cannot be before the start date": "endDate",
   "Location is too long": "location",
   "Audience size is too long": "audience",
   "Full name is required": "name",
@@ -151,14 +154,6 @@ export function BookJasperForm() {
               value={draft.eventName}
             />
           </SpeakingField>
-          <SpeakingField error={fieldError("date")} htmlFor="speaking-date" label="Date(s)">
-            <input
-              id="speaking-date"
-              onChange={(event) => update("date")(event.target.value)}
-              placeholder="Oct 14–15"
-              value={draft.date}
-            />
-          </SpeakingField>
           <SpeakingField
             error={fieldError("location")}
             htmlFor="speaking-location"
@@ -169,6 +164,34 @@ export function BookJasperForm() {
               onChange={(event) => update("location")(event.target.value)}
               placeholder="City or Virtual"
               value={draft.location}
+            />
+          </SpeakingField>
+          {/* A real range rather than free text: the end picker cannot open
+              before the chosen start, and the schema rejects a reversed or
+              orphaned pair. */}
+          <SpeakingField
+            error={fieldError("startDate")}
+            htmlFor="speaking-start-date"
+            label="Start date"
+          >
+            <input
+              id="speaking-start-date"
+              onChange={(event) => update("startDate")(event.target.value)}
+              type="date"
+              value={draft.startDate}
+            />
+          </SpeakingField>
+          <SpeakingField
+            error={fieldError("endDate")}
+            htmlFor="speaking-end-date"
+            label="End date"
+          >
+            <input
+              id="speaking-end-date"
+              min={draft.startDate || undefined}
+              onChange={(event) => update("endDate")(event.target.value)}
+              type="date"
+              value={draft.endDate}
             />
           </SpeakingField>
           <SpeakingField

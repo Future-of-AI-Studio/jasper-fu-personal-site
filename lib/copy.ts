@@ -74,6 +74,34 @@ export const pullQuotes = [
   "Compliance is the product. Everything else is a feature.",
 ] as const;
 
+export const PULL_QUOTES_MIN = 2;
+export const PULL_QUOTES_MAX = 4;
+
+export function assertPullQuote(quote: string) {
+  const trimmed = quote.trim();
+  if (!trimmed) {
+    throw new Error("Pull quote is required");
+  }
+  if (trimmed.includes("placeholder")) {
+    throw new Error("Pull quote is a placeholder");
+  }
+  return trimmed;
+}
+
+export function parsePullQuotes(quotes: readonly string[]) {
+  if (quotes.length < PULL_QUOTES_MIN) {
+    throw new Error(`Pull quotes need at least ${PULL_QUOTES_MIN}`);
+  }
+  if (quotes.length > PULL_QUOTES_MAX) {
+    throw new Error(`Pull quotes cannot exceed ${PULL_QUOTES_MAX}`);
+  }
+  const parsed = quotes.map(assertPullQuote);
+  if (new Set(parsed).size !== parsed.length) {
+    throw new Error("Pull quotes must each be unique");
+  }
+  return parsed;
+}
+
 export const quickFacts = [
   {
     label: "Cash access",
@@ -92,6 +120,47 @@ export const quickFacts = [
   },
 ] as const;
 
+export type QuickFact = { label: string; value: string; detail: string };
+
+// .fact-grid is a fixed 3-column layout (first card special-cased as
+// .stat-card--primary), so the count stays pinned at exactly 3 until that
+// grid supports a variable column count.
+export const QUICK_FACTS_MIN = 3;
+export const QUICK_FACTS_MAX = 3;
+
+export function assertQuickFact(fact: QuickFact) {
+  const label = fact.label.trim();
+  const value = fact.value.trim();
+  const detail = fact.detail.trim();
+  if (!label) {
+    throw new Error("Quick fact label is required");
+  }
+  if (!value) {
+    throw new Error(`${label} quick fact value is required`);
+  }
+  if (!detail) {
+    throw new Error(`${label} quick fact detail is required`);
+  }
+  if (value.includes("placeholder") || detail.includes("placeholder")) {
+    throw new Error(`${label} quick fact is a placeholder`);
+  }
+  return { label, value, detail };
+}
+
+export function parseQuickFacts(facts: readonly QuickFact[]) {
+  if (facts.length < QUICK_FACTS_MIN) {
+    throw new Error(`Quick facts need at least ${QUICK_FACTS_MIN} entries`);
+  }
+  if (facts.length > QUICK_FACTS_MAX) {
+    throw new Error(`Quick facts cannot exceed ${QUICK_FACTS_MAX} entries`);
+  }
+  const parsed = facts.map(assertQuickFact);
+  if (new Set(parsed.map((fact) => fact.label)).size !== parsed.length) {
+    throw new Error("Quick fact labels must each be unique");
+  }
+  return parsed;
+}
+
 export const careerTimeline = [
   "PwC, digital transformation consulting",
   "Fintech penetration testing, where he learned how payment systems get attacked",
@@ -99,11 +168,67 @@ export const careerTimeline = [
   "Co-founded Coinsub with David Akers, building the orchestration layer for programmable money",
 ] as const;
 
+export const CAREER_TIMELINE_MIN = 2;
+export const CAREER_TIMELINE_MAX = 6;
+
+export function assertCareerTimelineItem(item: string) {
+  const trimmed = item.trim();
+  if (!trimmed) {
+    throw new Error("Career timeline item is required");
+  }
+  if (trimmed.includes("placeholder")) {
+    throw new Error("Career timeline item is a placeholder");
+  }
+  return trimmed;
+}
+
+export function parseCareerTimeline(items: readonly string[]) {
+  if (items.length < CAREER_TIMELINE_MIN) {
+    throw new Error(`Career timeline needs at least ${CAREER_TIMELINE_MIN} items`);
+  }
+  if (items.length > CAREER_TIMELINE_MAX) {
+    throw new Error(`Career timeline cannot exceed ${CAREER_TIMELINE_MAX} items`);
+  }
+  const parsed = items.map(assertCareerTimelineItem);
+  if (new Set(parsed).size !== parsed.length) {
+    throw new Error("Career timeline items must each be unique");
+  }
+  return parsed;
+}
+
 export const credentials = [
   "Emory University, Goizueta Business School, BBA",
   "MSB-registered in the US (FinCEN) and Canada (FINTRAC), with ISO 27001 and SOC 2 in progress",
   "Coinsub founded 2023, headquartered in New York City, New York, with an incorporation address in Middletown, Delaware, U.S.",
 ] as const;
+
+export const CREDENTIALS_MIN = 2;
+export const CREDENTIALS_MAX = 6;
+
+export function assertCredentialItem(item: string) {
+  const trimmed = item.trim();
+  if (!trimmed) {
+    throw new Error("Credential item is required");
+  }
+  if (trimmed.includes("placeholder")) {
+    throw new Error("Credential item is a placeholder");
+  }
+  return trimmed;
+}
+
+export function parseCredentials(items: readonly string[]) {
+  if (items.length < CREDENTIALS_MIN) {
+    throw new Error(`Credentials need at least ${CREDENTIALS_MIN} items`);
+  }
+  if (items.length > CREDENTIALS_MAX) {
+    throw new Error(`Credentials cannot exceed ${CREDENTIALS_MAX} items`);
+  }
+  const parsed = items.map(assertCredentialItem);
+  if (new Set(parsed).size !== parsed.length) {
+    throw new Error("Credential items must each be unique");
+  }
+  return parsed;
+}
 
 export const aboutFaqs = [
   {
@@ -127,6 +252,46 @@ export const aboutFaqs = [
       "Definition pending Jasper's locked plain-language wording. Until then, treat programmable money as value that can move, settle, and be governed in software rather than in siloed ledgers.",
   },
 ];
+
+export type AboutFaq = { question: string; answer: string };
+
+// How many of the drafted questions are cleared to publish today. The 4th
+// ("What does programmable money mean?") is still a stub — see
+// assertAboutFaq below, which refuses to publish an answer that starts with
+// "Definition pending" even if this count is bumped without replacing it.
+export const ABOUT_FAQ_PUBLISHED_COUNT = 3;
+
+export function assertAboutFaq(faq: AboutFaq) {
+  const question = faq.question.trim();
+  const answer = faq.answer.trim();
+  if (!question) {
+    throw new Error("About FAQ question is required");
+  }
+  if (!answer) {
+    throw new Error(`${question} FAQ answer is required`);
+  }
+  if (answer.startsWith("Definition pending")) {
+    throw new Error(`${question} FAQ answer is still a pending stub`);
+  }
+  return { question, answer };
+}
+
+export function parseAboutFaqs(
+  faqs: readonly AboutFaq[],
+  count: number = ABOUT_FAQ_PUBLISHED_COUNT,
+) {
+  if (count < 1) {
+    throw new Error("About FAQ needs at least 1 published question");
+  }
+  if (count > faqs.length) {
+    throw new Error("About FAQ published count exceeds available questions");
+  }
+  const parsed = faqs.slice(0, count).map(assertAboutFaq);
+  if (new Set(parsed.map((faq) => faq.question)).size !== parsed.length) {
+    throw new Error("About FAQ questions must each be unique");
+  }
+  return parsed;
+}
 
 export const insightLanes = [
   {
@@ -180,7 +345,18 @@ export const interimBlogPosts = [
   },
 ];
 
-export const mediaCoverage = [
+export type CoverageItem = {
+  outlet: string;
+  title: string;
+  caption: string;
+  embedUrl: string | null;
+  watchUrl: string;
+  kind: "video" | "article" | "audio";
+  /** Card thumbnail. The featured item runs its player instead, so it has none. */
+  image?: string;
+};
+
+export const mediaCoverage: CoverageItem[] = [
   {
     outlet: "NASDAQ",
     title:
@@ -188,7 +364,7 @@ export const mediaCoverage = [
     caption: "Filmed at the New York Stock Exchange in NYC with Jane King.",
     embedUrl: "https://www.youtube.com/embed/n2AyhRBeho0",
     watchUrl: "https://www.youtube.com/watch?v=n2AyhRBeho0",
-    kind: "video" as const,
+    kind: "video",
   },
   {
     outlet: "CEO Magazine",
@@ -197,23 +373,28 @@ export const mediaCoverage = [
     embedUrl: null,
     watchUrl:
       "https://ceofficialmag.com/jasper-fu-invisible-money-layer-that-makes-stablecoins-feel-normal/",
-    kind: "article" as const,
+    kind: "article",
+    image: "/press/ceo-mag-thumbnail.png",
   },
   {
     outlet: "Circle",
     title: "Driving efficiency in global payment systems with USDC",
     caption: "Builder Series: stablecoin subscriptions, on-chain efficiency, and multi-chain support.",
     embedUrl: null,
-    watchUrl: "https://www.circle.com",
-    kind: "article" as const,
+    // The Builder Series episode itself. This pointed at circle.com, which
+    // dropped the reader on the corporate home page instead of the interview.
+    watchUrl: "https://www.youtube.com/watch?v=j3MOBy6PUnU",
+    kind: "video",
+    image: "/press/circle-thumbnail.jpg",
   },
   {
     outlet: "DecentraLounge / GlobalStake Podcast",
     title: "S02-E12, Jasper Fu, Co-Founder and CEO of Coinsub",
     caption: "Checkout, subscriptions, invoices, and donations.",
     embedUrl: null,
-    watchUrl: "https://www.youtube.com/results?search_query=DecentraLounge+Jasper+Fu+Coinsub",
-    kind: "audio" as const,
+    watchUrl: "https://www.youtube.com/watch?v=4m6KVmMSKQw",
+    kind: "audio",
+    image: "/press/decentralounge-thumbnail.jpg",
   },
 ];
 
@@ -232,6 +413,86 @@ export const factSheet = [
     value: "ISO 27001 and SOC 2",
   },
 ];
+
+export const FACT_SHEET_MIN_ROWS = 3;
+export const FACT_SHEET_MAX_ROWS = 6;
+
+export type FactSheetRow = { label: string; value: string };
+
+export function assertFactSheetRow(row: FactSheetRow) {
+  const label = row.label.trim();
+  const value = row.value.trim();
+
+  if (!label) {
+    throw new Error("Fact sheet label is required");
+  }
+
+  if (!value) {
+    throw new Error(`${label} fact sheet value is required`);
+  }
+
+  if (value.includes("placeholder")) {
+    throw new Error(`${label} fact sheet value is a placeholder`);
+  }
+
+  // Same bracket convention the legal guards refuse: "[Insert date]".
+  if (/\[[^\]]*\]/.test(value)) {
+    throw new Error(`${label} fact sheet value still carries a bracketed placeholder`);
+  }
+
+  return { label, value };
+}
+
+export function parseFactSheet(rows: readonly FactSheetRow[]) {
+  if (rows.length < FACT_SHEET_MIN_ROWS) {
+    throw new Error(`Fact sheet needs at least ${FACT_SHEET_MIN_ROWS} rows`);
+  }
+
+  if (rows.length > FACT_SHEET_MAX_ROWS) {
+    throw new Error(`Fact sheet cannot exceed ${FACT_SHEET_MAX_ROWS} rows`);
+  }
+
+  const parsed = rows.map(assertFactSheetRow);
+
+  if (new Set(parsed.map((row) => row.label)).size !== parsed.length) {
+    throw new Error("Fact sheet labels must each be unique");
+  }
+
+  return parsed;
+}
+
+/**
+ * The shortest a real opening sentence runs. Below this the split almost
+ * certainly landed inside an abbreviation ("U.S. ") rather than on a
+ * sentence end, which would silently ship a two-word lede.
+ */
+export const BIO_LEDE_MIN_LENGTH = 24;
+
+/**
+ * Splits a bio into its opening sentence and the remainder, so the home page
+ * can set the opening as a lede and the rest as supporting detail.
+ */
+export function splitBioLede(bio: string) {
+  const trimmed = bio.trim();
+
+  if (!trimmed) {
+    throw new Error("Bio is required");
+  }
+
+  const breakAt = trimmed.indexOf(". ");
+
+  if (breakAt === -1) {
+    throw new Error("Bio needs more than one sentence to carry a lede");
+  }
+
+  const lede = trimmed.slice(0, breakAt + 1);
+
+  if (lede.length < BIO_LEDE_MIN_LENGTH) {
+    throw new Error("Bio lede is too short to be a sentence");
+  }
+
+  return { lede, rest: trimmed.slice(breakAt + 2).trim() };
+}
 
 export const usageRights =
   "Coinsub, NASDAQ, CEO Magazine, and Circle assets are cleared for editorial use with attribution. FCTI, Ordr, and secondary partner logos are pending rights confirmation and should not be published until cleared.";
@@ -347,6 +608,38 @@ export function assertSpeakingBookingTitle(value: string) {
 export const BOOK_TO_SPEAK_CTA = "Book to Speak";
 export const REQUEST_FULL_MEDIA_KIT_CTA = "Request Full Media Kit";
 export const CONTACT_CTA = "Contact";
+export const WATCH_INTERVIEW_CTA = "Watch the Interview on Youtube";
+export const VIEW_ALL_COVERAGE_CTA = "View All Media Coverage";
+
+export function assertWatchInterviewCta(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error("Watch the Interview CTA is required");
+  }
+  if (trimmed === "Watch on YouTube") {
+    throw new Error("Watch on YouTube CTA is not published");
+  }
+  if (trimmed !== WATCH_INTERVIEW_CTA) {
+    throw new Error("Watch the Interview CTA must be Watch the Interview");
+  }
+  return trimmed;
+}
+
+export function assertViewAllCoverageCta(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error("View All Media Coverage CTA is required");
+  }
+  if (trimmed === "See All Press") {
+    throw new Error("See All Press CTA is not published");
+  }
+  if (trimmed !== VIEW_ALL_COVERAGE_CTA) {
+    throw new Error(
+      "View All Media Coverage CTA must be View All Media Coverage",
+    );
+  }
+  return trimmed;
+}
 
 export function assertBookToSpeakCta(value: string) {
   const trimmed = value.trim();
@@ -372,6 +665,30 @@ export function assertRequestFullMediaKitCta(value: string) {
   }
   if (trimmed !== REQUEST_FULL_MEDIA_KIT_CTA) {
     throw new Error("Request Full Media Kit CTA must be Request Full Media Kit");
+  }
+  return trimmed;
+}
+
+export const MEDIA_KIT_PROMISE =
+  "Headshots, logos, and approved copy, sent on request.";
+/* The draft copy promised a self-serve download. The kit is fulfilled by the
+   press desk, so a promise that no request is needed cannot be published. */
+export const RETIRED_MEDIA_KIT_PROMISE =
+  "Headshots, logos, and approved copy, no request email required.";
+
+export function assertMediaKitPromise(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error("Media kit promise is required");
+  }
+  if (trimmed === RETIRED_MEDIA_KIT_PROMISE) {
+    throw new Error("No-request-email media kit promise is not published");
+  }
+  if (trimmed.includes("no request email required")) {
+    throw new Error("Media kit promise cannot claim no request is required");
+  }
+  if (trimmed !== MEDIA_KIT_PROMISE) {
+    throw new Error("Media kit promise must be the sent-on-request line");
   }
   return trimmed;
 }

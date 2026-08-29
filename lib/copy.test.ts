@@ -4,6 +4,44 @@ import { identity } from "./identity";
 import {
   ABOUT_BIO_PARAGRAPH_MAX,
   ABOUT_BIO_PARAGRAPH_MIN,
+  BIO_LEDE_MIN_LENGTH,
+  CAREER_TIMELINE_MAX,
+  CAREER_TIMELINE_MIN,
+  CREDENTIALS_MAX,
+  CREDENTIALS_MIN,
+  FACT_SHEET_MAX_ROWS,
+  FACT_SHEET_MIN_ROWS,
+  MEDIA_KIT_PROMISE,
+  RETIRED_MEDIA_KIT_PROMISE,
+  assertMediaKitPromise,
+  ABOUT_FAQ_PUBLISHED_COUNT,
+  PULL_QUOTES_MAX,
+  PULL_QUOTES_MIN,
+  QUICK_FACTS_MAX,
+  QUICK_FACTS_MIN,
+  aboutFaqs,
+  assertAboutFaq,
+  assertCareerTimelineItem,
+  assertCredentialItem,
+  assertFactSheetRow,
+  assertPullQuote,
+  assertQuickFact,
+  assertViewAllCoverageCta,
+  assertWatchInterviewCta,
+  careerTimeline,
+  credentials,
+  factSheet,
+  parseAboutFaqs,
+  parseCareerTimeline,
+  parseCredentials,
+  parseFactSheet,
+  parsePullQuotes,
+  parseQuickFacts,
+  pullQuotes,
+  quickFacts,
+  splitBioLede,
+  VIEW_ALL_COVERAGE_CTA,
+  WATCH_INTERVIEW_CTA,
   ABOUT_PULL_QUOTE,
   PUBLISHED_CALENDLY_PROMPT,
   PUBLISHED_RESPONSE_TIME_NOTE,
@@ -349,6 +387,566 @@ describe("assertForwardLookingDisclaimer", () => {
   it("rejects an unpublished forward-looking disclaimer", () => {
     expect(() => assertForwardLookingDisclaimer("No forecasts.")).toThrow(
       "Forward-looking disclaimer must include Jasper Fu after Coinsub",
+    );
+  });
+});
+
+function factSheetRows(count: number) {
+  return Array.from({ length: Math.max(count, 0) }, (_, index) => ({
+    label: `Label ${index}`,
+    value: `Value ${index}`,
+  }));
+}
+
+function verifyPublishedFactSheet(rows: ReturnType<typeof parseFactSheet>) {
+  expect(rows).toHaveLength(factSheet.length);
+  expect(new Set(rows.map((row) => row.label)).size).toBe(rows.length);
+  for (const row of rows) {
+    expect(row.label.length).toBeGreaterThan(0);
+    expect(row.value.length).toBeGreaterThan(0);
+  }
+}
+
+describe("assertFactSheetRow", () => {
+  it("returns a published row unchanged", () => {
+    expect(assertFactSheetRow({ label: "Founded", value: "2023" })).toEqual({
+      label: "Founded",
+      value: "2023",
+    });
+  });
+
+  it("trims surrounding whitespace from both halves", () => {
+    expect(
+      assertFactSheetRow({ label: "  Founded  ", value: "  2023  " }),
+    ).toEqual({ label: "Founded", value: "2023" });
+  });
+
+  it("rejects an empty label", () => {
+    expect(() => assertFactSheetRow({ label: "  ", value: "2023" })).toThrow(
+      "Fact sheet label is required",
+    );
+  });
+
+  it("names the row when its value is empty", () => {
+    expect(() => assertFactSheetRow({ label: "Founded", value: " " })).toThrow(
+      "Founded fact sheet value is required",
+    );
+  });
+
+  it("rejects a placeholder value", () => {
+    expect(() =>
+      assertFactSheetRow({ label: "Founded", value: "placeholder" }),
+    ).toThrow("Founded fact sheet value is a placeholder");
+  });
+
+  it("rejects a bracketed value the way the legal guards do", () => {
+    expect(() =>
+      assertFactSheetRow({ label: "Founded", value: "[Insert year]" }),
+    ).toThrow("Founded fact sheet value still carries a bracketed placeholder");
+  });
+});
+
+describe("parseFactSheet", () => {
+  it("publishes the shipped fact sheet", () => {
+    verifyPublishedFactSheet(parseFactSheet(factSheet));
+  });
+
+  it("rejects a sheet below the minimum", () => {
+    expect(() => parseFactSheet(factSheetRows(FACT_SHEET_MIN_ROWS - 1))).toThrow(
+      `Fact sheet needs at least ${FACT_SHEET_MIN_ROWS} rows`,
+    );
+  });
+
+  it("accepts a sheet exactly at the minimum", () => {
+    expect(parseFactSheet(factSheetRows(FACT_SHEET_MIN_ROWS))).toHaveLength(
+      FACT_SHEET_MIN_ROWS,
+    );
+  });
+
+  it("accepts a sheet exactly at the maximum", () => {
+    expect(parseFactSheet(factSheetRows(FACT_SHEET_MAX_ROWS))).toHaveLength(
+      FACT_SHEET_MAX_ROWS,
+    );
+  });
+
+  it("rejects a sheet above the maximum", () => {
+    expect(() => parseFactSheet(factSheetRows(FACT_SHEET_MAX_ROWS + 1))).toThrow(
+      `Fact sheet cannot exceed ${FACT_SHEET_MAX_ROWS} rows`,
+    );
+  });
+
+  it("rejects duplicated labels", () => {
+    expect(() =>
+      parseFactSheet([
+        { label: "Founded", value: "2023" },
+        { label: "Founded", value: "2024" },
+        { label: "Headquarters", value: "New York" },
+      ]),
+    ).toThrow("Fact sheet labels must each be unique");
+  });
+});
+
+function timelineItems(count: number) {
+  return Array.from({ length: Math.max(count, 0) }, (_, index) => `Item ${index}`);
+}
+
+describe("assertCareerTimelineItem", () => {
+  it("returns a published item unchanged", () => {
+    expect(assertCareerTimelineItem("PwC, digital transformation consulting")).toBe(
+      "PwC, digital transformation consulting",
+    );
+  });
+
+  it("trims surrounding whitespace", () => {
+    expect(assertCareerTimelineItem("  PwC  ")).toBe("PwC");
+  });
+
+  it("rejects an empty item", () => {
+    expect(() => assertCareerTimelineItem("  ")).toThrow(
+      "Career timeline item is required",
+    );
+  });
+
+  it("rejects a placeholder item", () => {
+    expect(() => assertCareerTimelineItem("placeholder")).toThrow(
+      "Career timeline item is a placeholder",
+    );
+  });
+});
+
+describe("parseCareerTimeline", () => {
+  it("publishes the shipped career timeline", () => {
+    expect(parseCareerTimeline(careerTimeline)).toEqual([...careerTimeline]);
+  });
+
+  it("rejects a timeline below the minimum", () => {
+    expect(() => parseCareerTimeline(timelineItems(CAREER_TIMELINE_MIN - 1))).toThrow(
+      `Career timeline needs at least ${CAREER_TIMELINE_MIN} items`,
+    );
+  });
+
+  it("accepts a timeline exactly at the minimum", () => {
+    expect(parseCareerTimeline(timelineItems(CAREER_TIMELINE_MIN))).toHaveLength(
+      CAREER_TIMELINE_MIN,
+    );
+  });
+
+  it("accepts a timeline exactly at the maximum", () => {
+    expect(parseCareerTimeline(timelineItems(CAREER_TIMELINE_MAX))).toHaveLength(
+      CAREER_TIMELINE_MAX,
+    );
+  });
+
+  it("rejects a timeline above the maximum", () => {
+    expect(() => parseCareerTimeline(timelineItems(CAREER_TIMELINE_MAX + 1))).toThrow(
+      `Career timeline cannot exceed ${CAREER_TIMELINE_MAX} items`,
+    );
+  });
+
+  it("rejects duplicated items", () => {
+    expect(() =>
+      parseCareerTimeline(["Same item", "Same item"]),
+    ).toThrow("Career timeline items must each be unique");
+  });
+});
+
+describe("assertCredentialItem", () => {
+  it("returns a published item unchanged", () => {
+    expect(
+      assertCredentialItem("Emory University, Goizueta Business School, BBA"),
+    ).toBe("Emory University, Goizueta Business School, BBA");
+  });
+
+  it("trims surrounding whitespace", () => {
+    expect(assertCredentialItem("  BBA  ")).toBe("BBA");
+  });
+
+  it("rejects an empty item", () => {
+    expect(() => assertCredentialItem("  ")).toThrow("Credential item is required");
+  });
+
+  it("rejects a placeholder item", () => {
+    expect(() => assertCredentialItem("placeholder")).toThrow(
+      "Credential item is a placeholder",
+    );
+  });
+});
+
+describe("parseCredentials", () => {
+  it("publishes the shipped credentials", () => {
+    expect(parseCredentials(credentials)).toEqual([...credentials]);
+  });
+
+  it("rejects credentials below the minimum", () => {
+    expect(() => parseCredentials(timelineItems(CREDENTIALS_MIN - 1))).toThrow(
+      `Credentials need at least ${CREDENTIALS_MIN} items`,
+    );
+  });
+
+  it("accepts credentials exactly at the minimum", () => {
+    expect(parseCredentials(timelineItems(CREDENTIALS_MIN))).toHaveLength(
+      CREDENTIALS_MIN,
+    );
+  });
+
+  it("accepts credentials exactly at the maximum", () => {
+    expect(parseCredentials(timelineItems(CREDENTIALS_MAX))).toHaveLength(
+      CREDENTIALS_MAX,
+    );
+  });
+
+  it("rejects credentials above the maximum", () => {
+    expect(() => parseCredentials(timelineItems(CREDENTIALS_MAX + 1))).toThrow(
+      `Credentials cannot exceed ${CREDENTIALS_MAX} items`,
+    );
+  });
+
+  it("rejects duplicated items", () => {
+    expect(() =>
+      parseCredentials(["Same item", "Same item"]),
+    ).toThrow("Credential items must each be unique");
+  });
+});
+
+function quickFactRows(count: number) {
+  return Array.from({ length: Math.max(count, 0) }, (_, index) => ({
+    label: `Label ${index}`,
+    value: `Value ${index}`,
+    detail: `Detail ${index}`,
+  }));
+}
+
+describe("assertQuickFact", () => {
+  it("returns a published fact unchanged", () => {
+    expect(
+      assertQuickFact({ label: "Regulatory", value: "MSB", detail: "Registered across the US and Canada" }),
+    ).toEqual({ label: "Regulatory", value: "MSB", detail: "Registered across the US and Canada" });
+  });
+
+  it("trims surrounding whitespace from all three fields", () => {
+    expect(
+      assertQuickFact({ label: "  Regulatory  ", value: "  MSB  ", detail: "  Registered  " }),
+    ).toEqual({ label: "Regulatory", value: "MSB", detail: "Registered" });
+  });
+
+  it("rejects an empty label", () => {
+    expect(() =>
+      assertQuickFact({ label: "  ", value: "MSB", detail: "Registered" }),
+    ).toThrow("Quick fact label is required");
+  });
+
+  it("names the fact when its value is empty", () => {
+    expect(() =>
+      assertQuickFact({ label: "Regulatory", value: " ", detail: "Registered" }),
+    ).toThrow("Regulatory quick fact value is required");
+  });
+
+  it("names the fact when its detail is empty", () => {
+    expect(() =>
+      assertQuickFact({ label: "Regulatory", value: "MSB", detail: " " }),
+    ).toThrow("Regulatory quick fact detail is required");
+  });
+
+  it("rejects a placeholder value", () => {
+    expect(() =>
+      assertQuickFact({ label: "Regulatory", value: "placeholder", detail: "Registered" }),
+    ).toThrow("Regulatory quick fact is a placeholder");
+  });
+});
+
+describe("parseQuickFacts", () => {
+  it("publishes the shipped quick facts", () => {
+    expect(parseQuickFacts(quickFacts)).toEqual([...quickFacts]);
+  });
+
+  it("rejects facts below the minimum", () => {
+    expect(() => parseQuickFacts(quickFactRows(QUICK_FACTS_MIN - 1))).toThrow(
+      `Quick facts need at least ${QUICK_FACTS_MIN} entries`,
+    );
+  });
+
+  it("accepts facts exactly at the minimum", () => {
+    expect(parseQuickFacts(quickFactRows(QUICK_FACTS_MIN))).toHaveLength(QUICK_FACTS_MIN);
+  });
+
+  it("accepts facts exactly at the maximum", () => {
+    expect(parseQuickFacts(quickFactRows(QUICK_FACTS_MAX))).toHaveLength(QUICK_FACTS_MAX);
+  });
+
+  it("rejects facts above the maximum", () => {
+    expect(() => parseQuickFacts(quickFactRows(QUICK_FACTS_MAX + 1))).toThrow(
+      `Quick facts cannot exceed ${QUICK_FACTS_MAX} entries`,
+    );
+  });
+
+  it("rejects duplicated labels", () => {
+    expect(() =>
+      parseQuickFacts([
+        { label: "Regulatory", value: "MSB", detail: "Registered" },
+        { label: "Regulatory", value: "MSB", detail: "Registered again" },
+        { label: "Cash access", value: "12,000+", detail: "ATMs" },
+      ]),
+    ).toThrow("Quick fact labels must each be unique");
+  });
+});
+
+function pullQuoteStrings(count: number) {
+  return Array.from({ length: Math.max(count, 0) }, (_, index) => `Quote ${index}`);
+}
+
+describe("assertPullQuote", () => {
+  it("returns a published quote unchanged", () => {
+    expect(assertPullQuote("Compliance is the product. Everything else is a feature.")).toBe(
+      "Compliance is the product. Everything else is a feature.",
+    );
+  });
+
+  it("trims surrounding whitespace", () => {
+    expect(assertPullQuote("  Compliance is the product.  ")).toBe(
+      "Compliance is the product.",
+    );
+  });
+
+  it("rejects an empty quote", () => {
+    expect(() => assertPullQuote("  ")).toThrow("Pull quote is required");
+  });
+
+  it("rejects a placeholder quote", () => {
+    expect(() => assertPullQuote("placeholder")).toThrow("Pull quote is a placeholder");
+  });
+});
+
+describe("parsePullQuotes", () => {
+  it("publishes the shipped pull-quotes", () => {
+    expect(parsePullQuotes(pullQuotes)).toEqual([...pullQuotes]);
+  });
+
+  it("rejects quotes below the minimum", () => {
+    expect(() => parsePullQuotes(pullQuoteStrings(PULL_QUOTES_MIN - 1))).toThrow(
+      `Pull quotes need at least ${PULL_QUOTES_MIN}`,
+    );
+  });
+
+  it("accepts quotes exactly at the minimum", () => {
+    expect(parsePullQuotes(pullQuoteStrings(PULL_QUOTES_MIN))).toHaveLength(
+      PULL_QUOTES_MIN,
+    );
+  });
+
+  it("accepts quotes exactly at the maximum", () => {
+    expect(parsePullQuotes(pullQuoteStrings(PULL_QUOTES_MAX))).toHaveLength(
+      PULL_QUOTES_MAX,
+    );
+  });
+
+  it("rejects quotes above the maximum", () => {
+    expect(() => parsePullQuotes(pullQuoteStrings(PULL_QUOTES_MAX + 1))).toThrow(
+      `Pull quotes cannot exceed ${PULL_QUOTES_MAX}`,
+    );
+  });
+
+  it("rejects duplicated quotes", () => {
+    expect(() => parsePullQuotes(["Same quote.", "Same quote."])).toThrow(
+      "Pull quotes must each be unique",
+    );
+  });
+});
+
+describe("assertAboutFaq", () => {
+  it("returns a published FAQ unchanged", () => {
+    expect(
+      assertAboutFaq({ question: "What does Coinsub do?", answer: "It orchestrates programmable money." }),
+    ).toEqual({ question: "What does Coinsub do?", answer: "It orchestrates programmable money." });
+  });
+
+  it("trims surrounding whitespace from question and answer", () => {
+    expect(
+      assertAboutFaq({ question: "  Q?  ", answer: "  A.  " }),
+    ).toEqual({ question: "Q?", answer: "A." });
+  });
+
+  it("rejects an empty question", () => {
+    expect(() => assertAboutFaq({ question: " ", answer: "A." })).toThrow(
+      "About FAQ question is required",
+    );
+  });
+
+  it("names the question when its answer is empty", () => {
+    expect(() => assertAboutFaq({ question: "Q?", answer: " " })).toThrow(
+      "Q? FAQ answer is required",
+    );
+  });
+
+  it("rejects the drafted programmable-money stub answer", () => {
+    expect(() => assertAboutFaq(aboutFaqs[3]!)).toThrow(
+      "What does programmable money mean? FAQ answer is still a pending stub",
+    );
+  });
+});
+
+describe("parseAboutFaqs", () => {
+  it("publishes the first 3 approved questions, excluding the stub", () => {
+    const parsed = parseAboutFaqs(aboutFaqs);
+    expect(parsed).toHaveLength(ABOUT_FAQ_PUBLISHED_COUNT);
+    expect(parsed.map((faq) => faq.question)).not.toContain(
+      "What does programmable money mean?",
+    );
+  });
+
+  it("rejects a published count below 1", () => {
+    expect(() => parseAboutFaqs(aboutFaqs, 0)).toThrow(
+      "About FAQ needs at least 1 published question",
+    );
+  });
+
+  it("rejects a published count above the available questions", () => {
+    expect(() => parseAboutFaqs(aboutFaqs, aboutFaqs.length + 1)).toThrow(
+      "About FAQ published count exceeds available questions",
+    );
+  });
+
+  it("publishes a 4th question once it has real copy, proving the future one-line bump", () => {
+    const withRealFourthAnswer = [
+      ...aboutFaqs.slice(0, 3),
+      { question: "What does programmable money mean?", answer: "Value that moves and settles in software." },
+    ];
+    expect(parseAboutFaqs(withRealFourthAnswer, 4)).toHaveLength(4);
+  });
+
+  it("rejects duplicated questions", () => {
+    expect(() =>
+      parseAboutFaqs(
+        [
+          { question: "Q?", answer: "A." },
+          { question: "Q?", answer: "B." },
+        ],
+        2,
+      ),
+    ).toThrow("About FAQ questions must each be unique");
+  });
+});
+
+describe("assertMediaKitPromise", () => {
+  it("publishes the sent-on-request line", () => {
+    expect(assertMediaKitPromise(` ${MEDIA_KIT_PROMISE} `)).toBe(MEDIA_KIT_PROMISE);
+  });
+
+  it("rejects a missing promise", () => {
+    expect(() => assertMediaKitPromise(" ")).toThrow("Media kit promise is required");
+  });
+
+  it("rejects the retired no-request-email promise", () => {
+    expect(() => assertMediaKitPromise(RETIRED_MEDIA_KIT_PROMISE)).toThrow(
+      "No-request-email media kit promise is not published",
+    );
+  });
+
+  it("rejects any rewording that still claims no request is required", () => {
+    expect(() =>
+      assertMediaKitPromise("Approved copy, no request email required, ready now."),
+    ).toThrow("Media kit promise cannot claim no request is required");
+  });
+
+  it("rejects any other unpublished promise", () => {
+    expect(() => assertMediaKitPromise("Download the kit.")).toThrow(
+      "Media kit promise must be the sent-on-request line",
+    );
+  });
+});
+
+describe("splitBioLede", () => {
+  it("splits the published short bio at its first sentence", () => {
+    const { lede, rest } = splitBioLede(bios.words50);
+    expect(lede.endsWith("settlement certainty.")).toBe(true);
+    expect(rest.startsWith("Before Coinsub,")).toBe(true);
+    expect(`${lede} ${rest}`).toBe(bios.words50);
+  });
+
+  it("leaves no sentence unaccounted for in either half", () => {
+    const { lede, rest } = splitBioLede(bios.words75);
+    expect(`${lede} ${rest}`).toBe(bios.words75);
+    expect(lede).not.toContain(". ");
+  });
+
+  it("rejects an empty bio", () => {
+    expect(() => splitBioLede("   ")).toThrow("Bio is required");
+  });
+
+  it("rejects a single-sentence bio", () => {
+    expect(() => splitBioLede("Jasper Fu leads Coinsub.")).toThrow(
+      "Bio needs more than one sentence to carry a lede",
+    );
+  });
+
+  it("refuses to split inside an abbreviation", () => {
+    expect(() =>
+      splitBioLede("U.S. based founder of Coinsub. More detail follows here."),
+    ).toThrow("Bio lede is too short to be a sentence");
+  });
+
+  it("accepts a lede exactly at the minimum length", () => {
+    const lede = `${"a".repeat(BIO_LEDE_MIN_LENGTH - 1)}.`;
+    expect(splitBioLede(`${lede} Trailing sentence.`).lede).toHaveLength(
+      BIO_LEDE_MIN_LENGTH,
+    );
+  });
+
+  it("rejects a lede one character below the minimum", () => {
+    const lede = `${"a".repeat(BIO_LEDE_MIN_LENGTH - 2)}.`;
+    expect(() => splitBioLede(`${lede} Trailing sentence.`)).toThrow(
+      "Bio lede is too short to be a sentence",
+    );
+  });
+});
+
+describe("assertWatchInterviewCta", () => {
+  it("accepts the published label", () => {
+    expect(assertWatchInterviewCta(` ${WATCH_INTERVIEW_CTA} `)).toBe(
+      WATCH_INTERVIEW_CTA,
+    );
+  });
+
+  it("rejects an empty label", () => {
+    expect(() => assertWatchInterviewCta("  ")).toThrow(
+      "Watch the Interview CTA is required",
+    );
+  });
+
+  it("rejects the platform-named label", () => {
+    expect(() => assertWatchInterviewCta("Watch on YouTube")).toThrow(
+      "Watch on YouTube CTA is not published",
+    );
+  });
+
+  it("rejects any other label", () => {
+    expect(() => assertWatchInterviewCta("Play Video")).toThrow(
+      "Watch the Interview CTA must be Watch the Interview",
+    );
+  });
+});
+
+describe("assertViewAllCoverageCta", () => {
+  it("accepts the published label", () => {
+    expect(assertViewAllCoverageCta(` ${VIEW_ALL_COVERAGE_CTA} `)).toBe(
+      VIEW_ALL_COVERAGE_CTA,
+    );
+  });
+
+  it("rejects an empty label", () => {
+    expect(() => assertViewAllCoverageCta("  ")).toThrow(
+      "View All Media Coverage CTA is required",
+    );
+  });
+
+  it("rejects the retired shorthand", () => {
+    expect(() => assertViewAllCoverageCta("See All Press")).toThrow(
+      "See All Press CTA is not published",
+    );
+  });
+
+  it("rejects any other label", () => {
+    expect(() => assertViewAllCoverageCta("All Coverage")).toThrow(
+      "View All Media Coverage CTA must be View All Media Coverage",
     );
   });
 });

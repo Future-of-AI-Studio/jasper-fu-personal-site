@@ -39,19 +39,27 @@ export default function PressReleasesPage() {
               </div>
               <h3>{post.title}</h3>
               <p>{post.summary}</p>
-              <a className="text-link" href={post.href}>
+              <a
+                className="button-link button-link--block button-link--external"
+                href={post.href}
+              >
                 Read More
               </a>
             </article>
           ))}
         </div>
       </section>
+      {/* The signup sits in its own panel so the ask and the field read as
+          one block closing the page, rather than a heading with a
+          page-width input floating under it. */}
       <section className="band">
-        <SectionIntro
-          eyebrow="Alerts"
-          title="Want to be notified the moment new announcements post?"
-        />
-        <PressAlertForm />
+        <div className="alert-panel">
+          <SectionIntro
+            eyebrow="Alerts"
+            title="Want to be notified the moment new announcements post?"
+          />
+          <PressAlertForm />
+        </div>
       </section>
     </PressTabs>
   );

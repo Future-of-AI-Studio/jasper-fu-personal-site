@@ -8,6 +8,7 @@ import {
   type NavigationItem,
   assertBookingNavLabel,
   assertHeaderCta,
+  isActiveNavHref,
   parseNavigationItems,
   primaryNavigation,
 } from "./navigation";
@@ -175,6 +176,76 @@ describe("assertHeaderCta", () => {
   it("rejects an unpublished header CTA href", () => {
     expect(() => assertHeaderCta(makeHeaderCta({ href: "/contact" }))).toThrow(
       "Header CTA must link to the speaking page",
+    );
+  });
+});
+
+function verifyActive(pathname: string, expected: string[]) {
+  const active = primaryNavigation
+    .filter((item) => isActiveNavHref(item.href, pathname))
+    .map((item) => item.href);
+  expect(active).toEqual(expected);
+}
+
+describe("isActiveNavHref", () => {
+  it("marks the item whose route is being viewed", () => {
+    verifyActive("/about", ["/about"]);
+    verifyActive("/media-kit", ["/media-kit"]);
+    verifyActive("/contact", ["/contact"]);
+  });
+
+  it("marks exactly one item for every primary route", () => {
+    for (const item of primaryNavigation) {
+      verifyActive(item.href, [item.href]);
+    }
+  });
+
+  it("keeps Press current on its nested media coverage tab", () => {
+    verifyActive("/press/media-coverage", ["/press"]);
+  });
+
+  it("lights up Home only on the exact root", () => {
+    verifyActive("/", ["/"]);
+    expect(isActiveNavHref("/", "/about")).toBe(false);
+    expect(isActiveNavHref("/", "/press/media-coverage")).toBe(false);
+  });
+
+  it("does not let a sibling route claim a shorter href", () => {
+    expect(isActiveNavHref("/press", "/pressroom")).toBe(false);
+    expect(isActiveNavHref("/about", "/about-jasper")).toBe(false);
+  });
+
+  it("ignores a trailing slash on either side", () => {
+    expect(isActiveNavHref("/about/", "/about")).toBe(true);
+    expect(isActiveNavHref("/about", "/about/")).toBe(true);
+    expect(isActiveNavHref("/", "/")).toBe(true);
+  });
+
+  it("marks nothing current on a route outside the nav", () => {
+    verifyActive("/terms", []);
+    verifyActive("/unlock", []);
+  });
+
+  it("rejects a non-string href and pathname with distinct errors", () => {
+    expect(() => isActiveNavHref(undefined as unknown as string, "/")).toThrow(
+      "Navigation href must be a string",
+    );
+    expect(() => isActiveNavHref("/", undefined as unknown as string)).toThrow(
+      "Current pathname must be a string",
+    );
+  });
+
+  it("rejects an empty href and pathname with distinct errors", () => {
+    expect(() => isActiveNavHref("   ", "/")).toThrow("Navigation href is required");
+    expect(() => isActiveNavHref("/", "   ")).toThrow("Current pathname is required");
+  });
+
+  it("rejects a relative href and pathname with distinct errors", () => {
+    expect(() => isActiveNavHref("about", "/")).toThrow(
+      "Navigation href must start with a slash",
+    );
+    expect(() => isActiveNavHref("/", "about")).toThrow(
+      "Current pathname must start with a slash",
     );
   });
 });

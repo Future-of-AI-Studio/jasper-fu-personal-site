@@ -70,6 +70,45 @@ export function parseNavigationItems(items: NavigationItem[]) {
   });
 }
 
+function normalizeNavPath(value: unknown, label: string) {
+  if (typeof value !== "string") {
+    throw new Error(`${label} must be a string`);
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    throw new Error(`${label} is required`);
+  }
+
+  if (!trimmed.startsWith("/")) {
+    throw new Error(`${label} must start with a slash`);
+  }
+
+  if (trimmed === "/") {
+    return "/";
+  }
+
+  return trimmed.replace(/\/+$/, "");
+}
+
+/**
+ * Home matches only the exact root, so it does not light up on every page.
+ * Every other item also matches its nested routes at a segment boundary,
+ * which keeps Press marked current on /press/media-coverage without
+ * letting a sibling like /pressroom claim it.
+ */
+export function isActiveNavHref(href: string, pathname: string) {
+  const target = normalizeNavPath(href, "Navigation href");
+  const current = normalizeNavPath(pathname, "Current pathname");
+
+  if (target === "/") {
+    return current === "/";
+  }
+
+  return current === target || current.startsWith(`${target}/`);
+}
+
 export function assertHeaderCta(input: { label: string; href: string }) {
   const label = input.label.trim();
   const href = input.href.trim();

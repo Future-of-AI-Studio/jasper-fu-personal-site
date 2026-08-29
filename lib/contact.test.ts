@@ -12,6 +12,7 @@ import {
   inquiryLabels,
   inquiryTypes,
   parseInquirySubmission,
+  parseInquiryTypeOptions,
   routeInquiry,
 } from "./contact";
 
@@ -92,6 +93,36 @@ describe("parseInquirySubmission", () => {
     expect(() => assertMediaKitInquiryLabel("Get the kit")).toThrow(
       "Media kit inquiry type must be Request Media Kit",
     );
+  });
+
+  it("offers every inquiry type by default", () => {
+    expect(parseInquiryTypeOptions(inquiryTypes, "interview")).toEqual([
+      ...inquiryTypes,
+    ]);
+  });
+
+  it("narrows to a single type on a dedicated page", () => {
+    expect(
+      parseInquiryTypeOptions([MEDIA_KIT_INQUIRY_TYPE], MEDIA_KIT_INQUIRY_TYPE),
+    ).toEqual([MEDIA_KIT_INQUIRY_TYPE]);
+  });
+
+  it("rejects a form with no inquiry type to pick", () => {
+    expect(() => parseInquiryTypeOptions([], "interview")).toThrow(
+      "Inquiry form needs at least one inquiry type",
+    );
+  });
+
+  it("rejects duplicated inquiry types", () => {
+    expect(() =>
+      parseInquiryTypeOptions(["interview", "interview"], "interview"),
+    ).toThrow("Inquiry types must each be unique");
+  });
+
+  it("rejects a default that is not among the offered types", () => {
+    expect(() =>
+      parseInquiryTypeOptions([MEDIA_KIT_INQUIRY_TYPE], "interview"),
+    ).toThrow("interview is not among the offered inquiry types");
   });
 
   it("builds a mailto for a Request Media Kit inquiry", () => {

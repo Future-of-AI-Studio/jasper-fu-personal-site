@@ -26,17 +26,19 @@ export default function SpeakingPage() {
       />
       <section className="band">
         <SectionIntro eyebrow="Topics" title="What Jasper speaks on" />
-        <ol className="index-list topic-grid">
-          {speakingTopics.map((topic, index) => (
+        {/* Bulleted, not numbered: these topics have no running order, and
+            the counters implied one. */}
+        <ul className="index-list topic-grid">
+          {speakingTopics.map((topic) => (
             <li key={topic.title}>
-              <span>{String(index + 1).padStart(2, "0")}</span>
+              <span className="index-list__dot" aria-hidden="true" />
               <div>
                 <h3>{topic.title}</h3>
                 <p>{topic.summary}</p>
               </div>
             </li>
           ))}
-        </ol>
+        </ul>
       </section>
       <section className="band">
         <SectionIntro

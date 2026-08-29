@@ -1,28 +1,38 @@
 import Link from "next/link";
 
 import { CoinsubMark, TitleWithCoinsub } from "../components/site/brand";
-import { HeroPortraitCarousel } from "../components/site/hero-portrait-carousel";
 import { SectionIntro } from "../components/site/legal-document";
+import { LogoCarousel } from "../components/site/logo-carousel";
 import {
   BOOK_TO_SPEAK_CTA,
-  CONTACT_CTA,
+  MEDIA_KIT_PROMISE,
   REQUEST_FULL_MEDIA_KIT_CTA,
   assertBookToSpeakCta,
-  assertContactCta,
+  assertMediaKitPromise,
   assertRequestFullMediaKitCta,
+  assertViewAllCoverageCta,
+  assertWatchInterviewCta,
   bios,
-  companyBoilerplate,
+  factSheet,
   FLAGSHIP_ESSAY_READY,
   interimBlogPosts,
   mediaCoverage,
+  parseFactSheet,
+  splitBioLede,
+  VIEW_ALL_COVERAGE_CTA,
+  WATCH_INTERVIEW_CTA,
 } from "../lib/copy";
 import {
-  assertMediaOutletMark,
-  assertThesis,
-  identity,
-  mediaBarLoopCopyIndexes,
-  mediaOutlets,
-} from "../lib/identity";
+  assertHeroDisplayName,
+  assertHeroPortrait,
+  assertHeroWatermark,
+  HERO_FEATURE_PORTRAIT,
+  HERO_FEATURE_PORTRAIT_HEIGHT,
+  HERO_FEATURE_PORTRAIT_WIDTH,
+  heroTopics,
+  parseHeroTopics,
+} from "../lib/hero";
+import { assertOutletMarkFor, assertThesis, identity } from "../lib/identity";
 import {
   assertPressThumbnail,
   PRESS_THUMB_HEIGHT,
@@ -31,110 +41,138 @@ import {
 
 export default function HomePage() {
   const featured = mediaCoverage[0]!;
+  // The short bio, split so the opening statement can lead and the rest
+  // reads as supporting detail rather than one dense block.
+  const homeBio = splitBioLede(bios.words50);
+  // The outlet that ran the featured interview, resolved to its published
+  // logo so the credit line carries the mark rather than plain text.
+  const featuredOutlet = assertOutletMarkFor(featured.outlet);
 
   return (
     <div className="home">
       <section className="hero">
-        <div className="hero__copy">
-          <p className="eyebrow" data-reveal>
+        <p aria-hidden="true" className="hero__watermark">
+          {assertHeroWatermark(identity.name)}
+        </p>
+
+        <h1 className="hero__name" data-reveal>
+          {assertHeroDisplayName(identity.name)}
+        </h1>
+
+        <div className="hero__portrait">
+          <div aria-hidden="true" className="hero__portrait-halftone" />
+          <img
+            alt={identity.name}
+            className="hero__portrait-image"
+            height={HERO_FEATURE_PORTRAIT_HEIGHT}
+            src={assertHeroPortrait(HERO_FEATURE_PORTRAIT)}
+            width={HERO_FEATURE_PORTRAIT_WIDTH}
+          />
+        </div>
+
+        <div className="hero__intro" data-reveal>
+          <p className="eyebrow">
             <TitleWithCoinsub />
           </p>
-          <h1 data-reveal>{identity.name}</h1>
-          <p className="hero__deck" data-reveal>
-            {assertThesis(identity.thesis)}
-          </p>
-          <div className="hero__rule" aria-hidden="true" />
-          <div className="hero__actions">
-            <Link className="button-link" href="/speaking">
-              {assertBookToSpeakCta(BOOK_TO_SPEAK_CTA)}
-            </Link>
-            <Link className="button-link button-link--ghost" href="/contact">
-              {assertContactCta(CONTACT_CTA)}
-            </Link>
-          </div>
+          <p className="hero__deck">{assertThesis(identity.thesis)}</p>
+          <Link className="marker-link" href="/speaking">
+            {assertBookToSpeakCta(BOOK_TO_SPEAK_CTA)}
+          </Link>
         </div>
-        <HeroPortraitCarousel />
+
+        <ul className="hero__topics" data-reveal>
+          {parseHeroTopics(heroTopics).map((topic) => (
+            <li
+              className={
+                topic.featured
+                  ? "hero__topic hero__topic--featured"
+                  : "hero__topic"
+              }
+              key={topic.label}
+            >
+              {topic.label}
+            </li>
+          ))}
+        </ul>
       </section>
 
-      <div className="media-bar" aria-label="Media recognition">
-        <div className="media-bar__track">
-          {mediaBarLoopCopyIndexes().map((copy) => (
-            <div
-              aria-hidden={copy === 1 ? true : undefined}
-              className="media-bar__group"
-              key={copy}
-            >
-              {mediaOutlets.map((outlet) => {
-                const mark = assertMediaOutletMark(outlet);
-                return (
-                  <a
-                    className="media-bar__link"
-                    href={outlet.href}
-                    key={`${copy}-${mark.name}`}
-                    tabIndex={copy === 1 ? -1 : undefined}
-                  >
-                    <img
-                      alt={copy === 0 ? mark.name : ""}
-                      className={
-                        mark.name === "CEO Magazine"
-                          ? "media-bar__logo media-bar__logo--ceo"
-                          : "media-bar__logo"
-                      }
-                      src={mark.logo}
-                    />
-                  </a>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
+      <LogoCarousel />
 
-      <section className="band two-col">
-        <div>
+      <section className="band home-brief">
+        <div className="home-brief__bio">
           <SectionIntro eyebrow="Biography">
-            <p>{bios.words75}</p>
-            <Link className="text-link" href="/about">
+            <p className="home-brief__lede">{homeBio.lede}</p>
+            <p className="home-brief__detail">{homeBio.rest}</p>
+            <Link className="marker-link" href="/about">
               Read Full Bio
             </Link>
           </SectionIntro>
         </div>
-        <div className="home-company">
+        <aside className="home-company">
           <p className="eyebrow">Company</p>
           <CoinsubMark className="home-company__logo" />
-          <p>{companyBoilerplate}</p>
-        </div>
+          <dl className="fact-list">
+            {parseFactSheet(factSheet).map((fact) => (
+              <div className="fact-list__row" key={fact.label}>
+                <dt className="fact-list__label">{fact.label}</dt>
+                <dd className="fact-list__value">{fact.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </aside>
       </section>
 
-      <section className="band">
-        <SectionIntro
-          eyebrow="Featured interview"
-          fullWidth
-          title={featured.title}
-        >
-          <p>{featured.caption}</p>
-        </SectionIntro>
+      <section className="band featured-interview">
+        <div className="featured-interview__head">
+          <p className="eyebrow">Featured interview</p>
+          <h2 className="featured-interview__title">{featured.title}</h2>
+          {/* The logo is the outlet's wordmark, so a name beside it would
+              only repeat itself; the alt text carries the name instead. */}
+          <p className="featured-interview__credit">
+            <img
+              alt={featuredOutlet.name}
+              className="featured-interview__outlet"
+              src={featuredOutlet.logo}
+            />
+          </p>
+        </div>
+
+        <div className="featured-interview__aside">
+          <p className="featured-interview__lede">{featured.caption}</p>
+          <div className="featured-interview__actions">
+            <a className="button-link" href={featured.watchUrl}>
+              {assertWatchInterviewCta(WATCH_INTERVIEW_CTA)}
+            </a>
+            <Link
+              className="button-link button-link--ghost"
+              href="/press/media-coverage"
+            >
+              {assertViewAllCoverageCta(VIEW_ALL_COVERAGE_CTA)}
+            </Link>
+          </div>
+        </div>
+
         {featured.embedUrl ? (
           <iframe
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
-            className="embed"
+            className="embed featured-interview__media"
             src={featured.embedUrl}
             title={featured.title}
           />
         ) : null}
-        <p>
-          <Link className="text-link" href="/press/media-coverage">
-            View All Media Coverage
-          </Link>
-        </p>
       </section>
 
       <section className="band">
-        <SectionIntro
-          eyebrow="Latest from Coinsub"
-          title="What Coinsub has been writing publicly"
-        />
+        <div className="post-head">
+          <p className="eyebrow">Latest from Coinsub</p>
+          <h2 className="post-head__title">
+            What Coinsub has been writing publicly
+          </h2>
+          <Link className="marker-link" href="/press">
+            Read the Blog
+          </Link>
+        </div>
         <div className="card-grid">
           {interimBlogPosts.map((post) => (
             <article className="card card--thumb" key={post.href}>
@@ -149,15 +187,15 @@ export default function HomePage() {
               </div>
               <h3>{post.title}</h3>
               <p>{post.summary}</p>
-              <a className="text-link" href={post.href}>
+              <a
+                className="button-link button-link--block button-link--external"
+                href={post.href}
+              >
                 Read More
               </a>
             </article>
           ))}
         </div>
-        <Link className="text-link" href="/press">
-          Read the Blog
-        </Link>
       </section>
 
       {FLAGSHIP_ESSAY_READY ? (
@@ -177,26 +215,13 @@ export default function HomePage() {
         </section>
       ) : null}
 
-      <section className="band closer">
-        <div>
-          <SectionIntro eyebrow="Media kit" title="Everything a reporter needs">
-            <p>Headshots, logos, and approved copy, no request email required.</p>
-            <Link className="button-link" href="/media-kit">
-              {assertRequestFullMediaKitCta(REQUEST_FULL_MEDIA_KIT_CTA)}
-            </Link>
-          </SectionIntro>
-        </div>
-        <div>
-          <SectionIntro eyebrow="Press" title="Get in touch">
-            <p>
-              Working on a story about stablecoin infrastructure, programmable
-              money, or payments orchestration?
-            </p>
-            <Link className="button-link button-link--ghost" href="/contact">
-              {assertContactCta(CONTACT_CTA)}
-            </Link>
-          </SectionIntro>
-        </div>
+      <section className="band">
+        <SectionIntro eyebrow="Media kit" title="Everything a reporter needs">
+          <p>{assertMediaKitPromise(MEDIA_KIT_PROMISE)}</p>
+          <Link className="button-link" href="/media-kit">
+            {assertRequestFullMediaKitCta(REQUEST_FULL_MEDIA_KIT_CTA)}
+          </Link>
+        </SectionIntro>
       </section>
     </div>
   );

@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { identity } from "./identity";
+import { identity, MEDIA_BAR_LOOP_COPIES } from "./identity";
+import { LOGO_CAROUSEL_BREAKPOINT_PX } from "./logo-carousel";
 
 const css = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), "../app/globals.css"),
@@ -16,7 +17,33 @@ const HERO_COLUMN_GAP = {
   preferred: "2.5vw",
   max: "2.5rem",
 } as const;
-const HERO_COPY_MAX_WIDTH = "28rem";
+const HERO_INTRO_MAX_WIDTH = "24rem";
+const LEGACY_HERO_COPY_MAX_WIDTH = "28rem";
+const HERO_NAME_FONT_SIZE = {
+  min: "3rem",
+  preferred: "15vw",
+  max: "13rem",
+} as const;
+const HERO_NAME_WEIGHT = "font-weight: 700";
+const HERO_BODY_WEIGHT = "font-weight: 400";
+const HERO_PORTRAIT_LIFT = {
+  min: "-5rem",
+  preferred: "-5vw",
+  max: "-2rem",
+} as const;
+const HERO_WATERMARK_TINT = "color-mix(in srgb, var(--navy) 4%, transparent)";
+const MEDIA_BAR_GAP = "clamp(2rem, 4vw, 3.5rem)";
+const MEDIA_BAR_ROW_MAX_TOKEN = "media-bar-row-max";
+const MEDIA_BAR_ROW_MAX = "68rem";
+const MEDIA_BAR_PADDING = "0.85rem 0";
+/* Retired with the top rule that split the strip off from the hero. */
+const LEGACY_MEDIA_BAR_PADDING = "1.75rem 0";
+/* Clears before the image edge — the suit runs to the bottom of the cutout,
+   so a fade ending at 100% leaves a visible band across the shoulders. */
+const HERO_PORTRAIT_FADE = "linear-gradient(to bottom, black 68%, transparent 95%)";
+/* Retired with the studio-backdrop JPEG: the cutout needs no edge mask. */
+const LEGACY_HERO_PORTRAIT_EDGE_MASK = "ellipse 70% 78% at 50% 42%";
+const LEGACY_HERO_ITALIC_DECK = "font-style: italic";
 const WORDMARK_NAME_INSET = "calc(3.5rem + 0.9rem)";
 const LEGACY_HERO_GAP = "clamp(2rem, 5vw, 5rem)";
 const TOO_TIGHT_HERO_GAP = "clamp(1rem, 2vw, 1.75rem)";
@@ -26,11 +53,27 @@ const HERO_FOLD_CHROME = "15rem";
 const HERO_FOLD_CHROME_MIN = 12;
 const HERO_FOLD_CHROME_MAX = 18;
 const EYEBROW_SIZE_REM = 0.75;
-const ABOUT_GOLD_HEADER_REM = EYEBROW_SIZE_REM * 2;
-const ABOUT_PORTRAIT_MAX_WIDTH = "32rem";
-const ABOUT_PORTRAIT_MAX_WIDTH_MIN = 24;
-const ABOUT_PORTRAIT_MAX_WIDTH_MAX = 40;
-const LEGACY_ABOUT_PORTRAIT_MIN_HEIGHT = "clamp(22rem, 48vw, 34rem)";
+const ABOUT_LABEL_REM = EYEBROW_SIZE_REM;
+/* Retired: the About label was set at twice the eyebrow scale in gold, which
+   read as neither an eyebrow nor a headline. */
+const RETIRED_ABOUT_LABEL_REM = EYEBROW_SIZE_REM * 2;
+const ABOUT_HEADLINE_FONT_SIZE = "clamp(2.1rem, 4.4vw, 3.5rem)";
+/* The quote now sits under the one-liner as a deck. */
+const ABOUT_QUOTE_FONT_SIZE = "clamp(1rem, 1.3vw, 1.18rem)";
+/* Retired with the bordered-callout treatment of the opening quote. */
+const RETIRED_ABOUT_QUOTE_FONT_SIZE = "clamp(1.12rem, 1.7vw, 1.38rem)";
+/* Retired when the quote stopped being the headline and became the deck. */
+const RETIRED_ABOUT_QUOTE_HEADLINE_SIZE = "clamp(1.7rem, 3.1vw, 2.6rem)";
+const ABOUT_BIO_COLUMN =
+  "grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr)";
+/* Retired: the bio ran alone in one narrow column, leaving half the row empty. */
+const RETIRED_ABOUT_BIO_SINGLE_COLUMN = "grid-template-columns: minmax(0, 42rem)";
+const SHOWCASE_ASPECT_RATIO = "12 / 5";
+/* The source still is 16:9 with a broadcast lower-third across its bottom
+   ~23%. A crop any narrower than this shows less than that band, which puts
+   the chyron back on screen behind the name and the stat chips. */
+const SHOWCASE_ASPECT_RATIO_MIN = 2.32;
+const SHOWCASE_ASPECT_RATIO_MAX = 3;
 const ABOUT_BIO_FONT_SIZE = {
   min: "0.945rem",
   preferred: "1.26vw",
@@ -49,40 +92,49 @@ const CONTACT_TITLE_SIZE = {
   max: "2.85rem",
 } as const;
 
-function aboutGoldHeaderBlock(source = css) {
+function aboutPageLabelBlock(source = css) {
   return source.match(/\.page-head--label \.eyebrow\s*\{[^}]+\}/)?.[0] ?? "";
 }
 
-function parseAboutGoldHeaderSize(source: string) {
-  const block = aboutGoldHeaderBlock(source);
+function parseAboutPageLabelSize(source: string) {
+  const block = aboutPageLabelBlock(source);
   if (!block.trim()) {
-    throw new Error("About gold header rule is required");
+    throw new Error("About page label rule is required");
   }
   const match = block.match(/font-size:\s*([^;]+);/);
   if (!match?.[1]?.trim()) {
-    throw new Error("About gold header font-size is required");
+    throw new Error("About page label font-size is required");
   }
   const value = match[1].trim();
   if (!value.endsWith("rem")) {
-    throw new Error("About gold header must be a rem length");
+    throw new Error("About page label must be a rem length");
   }
   const rem = Number.parseFloat(value);
   if (!Number.isFinite(rem)) {
-    throw new Error("About gold header must be a rem length");
+    throw new Error("About page label must be a rem length");
   }
-  if (rem !== ABOUT_GOLD_HEADER_REM) {
+  if (rem === RETIRED_ABOUT_LABEL_REM) {
+    throw new Error("Doubled gold About label is not published");
+  }
+  if (rem !== ABOUT_LABEL_REM) {
     throw new Error(
-      `About gold header must be ${ABOUT_GOLD_HEADER_REM}rem (2x the eyebrow)`,
+      `About page label must be ${ABOUT_LABEL_REM}rem (the eyebrow scale)`,
     );
   }
   return value;
 }
 
-function verifyAboutGoldHeader() {
+function verifyAboutPageLabel() {
   const eyebrow = css.match(/^\.eyebrow\s*\{[^}]+\}/m)?.[0] ?? "";
+  const block = aboutPageLabelBlock();
+  const head = css.match(/\.page-head--label\s*\{[^}]+\}/)?.[0] ?? "";
   expect(eyebrow).toContain(`font-size: ${EYEBROW_SIZE_REM}rem`);
-  expect(parseAboutGoldHeaderSize(css)).toBe(`${ABOUT_GOLD_HEADER_REM}rem`);
-  expect(aboutGoldHeaderBlock()).toContain("color: var(--gold)");
+  expect(parseAboutPageLabelSize(css)).toBe(`${ABOUT_LABEL_REM}rem`);
+  expect(block).toContain("color: var(--sky)");
+  expect(block).not.toContain("color: var(--gold)");
+  // The navy rule under the header boxed the page in like a form.
+  expect(head).toContain("border-bottom: 0");
+  expect(head).not.toContain("border-bottom: 1px solid var(--navy)");
 }
 
 function parseAboutBioFontSize(source: string) {
@@ -129,74 +181,138 @@ function verifyAboutBioProse() {
   expect(prose).toContain("z-index: 1");
   expect(prose).toContain("min-width: 0");
   expect(prose).not.toContain("color: var(--white)");
-  expect(quote).toContain("display: flex");
-  expect(quote).toContain("border-left: 2px solid var(--gold)");
+  // The one-liner leads at display scale; the quote follows as the deck.
+  const headline = css.match(/\.about-headline\s*\{[^}]+\}/)?.[0] ?? "";
+  const quoteText = css.match(/\.about-bio__quote p\s*\{[^}]+\}/)?.[0] ?? "";
+  expect(headline).toContain(`font-size: ${ABOUT_HEADLINE_FONT_SIZE}`);
+  expect(headline).toContain("font-family: var(--font-display)");
+  expect(quote).toContain("display: block");
+  expect(quote).toContain("border-left: 0");
+  expect(quote).not.toContain("border-left: 2px solid var(--gold)");
+  expect(quoteText).toContain(`font-size: ${ABOUT_QUOTE_FONT_SIZE}`);
+  expect(quoteText).not.toContain(RETIRED_ABOUT_QUOTE_FONT_SIZE);
+  expect(quoteText).not.toContain(RETIRED_ABOUT_QUOTE_HEADLINE_SIZE);
   expect(css).not.toContain(".about-bio__quote cite");
   expect(paragraphs).toContain("color: var(--navy)");
   expect(parseAboutBioFontSize(css)).toEqual(ABOUT_BIO_FONT_SIZE);
   const headQuote =
     css.match(/\.page-head--label \.about-bio__quote\s*\{[^}]+\}/)?.[0] ?? "";
   const head = css.match(/\.page-head--label\s*\{[^}]+\}/)?.[0] ?? "";
-  expect(head).toContain("justify-items: start");
-  expect(headQuote).toContain("max-width: 42rem");
+  expect(head).toContain("justify-items: center");
+  expect(head).toContain("text-align: center");
+  expect(headQuote).toContain("max-width: none");
 }
 
-function aboutPortraitBlock(source = css) {
-  return source.match(/\.about-portrait\s*\{[\s\S]*?\}/)?.[0] ?? "";
+function showcaseImageBlock(source = css) {
+  return source.match(/\.showcase__image\s*\{[^}]+\}/)?.[0] ?? "";
 }
 
-function parseAboutPortraitMaxWidth(source: string) {
-  const block = aboutPortraitBlock(source);
+/**
+ * The crop is load-bearing, not cosmetic: the published still carries a
+ * broadcast lower-third across its bottom, and only a wide enough frame
+ * anchored to the top lifts that band out of shot.
+ */
+function parseShowcaseAspectRatio(source: string) {
+  const block = showcaseImageBlock(source);
   if (!block.trim()) {
-    throw new Error("About portrait rule is required");
+    throw new Error("Showcase image rule is required");
   }
-  const match = block.match(/max-width:\s*([^;]+);/);
-  if (!match?.[1]?.trim()) {
-    throw new Error("About portrait max-width is required");
+  const match = block.match(/aspect-ratio:\s*([0-9.]+)\s*\/\s*([0-9.]+)\s*;/);
+  if (!match?.[1] || !match[2]) {
+    throw new Error("Showcase image aspect-ratio is required");
   }
-  const value = match[1].trim();
-  if (!value.endsWith("rem")) {
-    throw new Error("About portrait max-width must be a rem length");
+  const width = Number.parseFloat(match[1]);
+  const height = Number.parseFloat(match[2]);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || height === 0) {
+    throw new Error("Showcase image aspect-ratio must be a numeric ratio");
   }
-  const rem = Number.parseFloat(value);
-  if (!Number.isFinite(rem)) {
-    throw new Error("About portrait max-width must be a rem length");
-  }
-  if (rem < ABOUT_PORTRAIT_MAX_WIDTH_MIN) {
+  const ratio = width / height;
+  if (ratio < SHOWCASE_ASPECT_RATIO_MIN) {
     throw new Error(
-      `About portrait max-width cannot be below ${ABOUT_PORTRAIT_MAX_WIDTH_MIN}rem`,
+      "Showcase crop must stay wide enough to cut the broadcast lower-third",
     );
   }
-  if (rem > ABOUT_PORTRAIT_MAX_WIDTH_MAX) {
+  if (ratio > SHOWCASE_ASPECT_RATIO_MAX) {
     throw new Error(
-      `About portrait max-width cannot be above ${ABOUT_PORTRAIT_MAX_WIDTH_MAX}rem`,
+      `Showcase crop cannot be wider than ${SHOWCASE_ASPECT_RATIO_MAX}:1`,
     );
   }
-  return value;
+  return `${match[1]} / ${match[2]}`;
 }
 
-function verifyAboutBioBesidePortrait() {
+function verifyShowcaseCard() {
+  const frame = css.match(/\.showcase__frame\s*\{[^}]+\}/)?.[0] ?? "";
+  const image = showcaseImageBlock();
+  const overlay = css.match(/\.showcase__overlay\s*\{[^}]+\}/)?.[0] ?? "";
+  const stats = css.match(/\.showcase__stats\s*\{[^}]+\}/)?.[0] ?? "";
+  expect(frame).toContain("position: relative");
+  expect(frame).toContain("overflow: hidden");
+  expect(parseShowcaseAspectRatio(css)).toBe(SHOWCASE_ASPECT_RATIO);
+  // Anchoring to the top is what actually lifts the chyron out of frame.
+  expect(image).toContain("object-position: center top");
+  expect(image).toContain("object-fit: cover");
+  // The img carries width/height attributes, which act as presentational
+  // hints. Without height:auto both axes are definite, aspect-ratio is
+  // ignored, and the crop silently stops happening.
+  expect(image).toContain("height: auto");
+  expect(overlay).toContain("position: absolute");
+  expect(stats).toContain("backdrop-filter: blur(14px) saturate(140%)");
+}
+
+function verifyAboutBioColumn() {
   const layout = css.match(/\.about-bio\s*\{[^}]+\}/)?.[0] ?? "";
-  const portrait = aboutPortraitBlock();
-  expect(layout).toContain(
-    `grid-template-columns: ${ABOUT_PORTRAIT_MAX_WIDTH} minmax(0, 1fr)`,
-  );
+  const panel =
+    css.match(/\.home-company\s*,\s*\.about-company\s*\{[^}]+\}/)?.[0] ?? "";
+  expect(layout).toContain(ABOUT_BIO_COLUMN);
   expect(layout).toContain("align-items: start");
   expect(layout).not.toContain("align-items: stretch");
-  expect(parseAboutPortraitMaxWidth(css)).toBe(ABOUT_PORTRAIT_MAX_WIDTH);
-  expect(portrait).not.toContain("max-width: 16rem");
-  expect(portrait).not.toContain(LEGACY_ABOUT_PORTRAIT_MIN_HEIGHT);
-  expect(portrait).toContain("min-height: 0");
-  expect(portrait).toContain("z-index: 0");
-  expect(portrait).toContain("overflow: hidden");
+  // The bio runs beside the company panel rather than alone in one column.
+  expect(layout).not.toContain(RETIRED_ABOUT_BIO_SINGLE_COLUMN);
+  // The panel is shared with the home brief, not duplicated for About.
+  expect(panel).toContain("background: var(--paper)");
+  expect(panel).toContain("border-radius: var(--radius)");
+  // The 4:5 portrait column and its scrim retired with the hero card.
+  expect(layout).not.toContain("grid-template-columns: 32rem");
+  expect(css).not.toContain(".about-portrait");
 }
 
 function heroBlock() {
   return css.match(/\.hero\s*\{[^}]+\}/)?.[0] ?? "";
 }
 
-function heroCopyBlock() {
-  return css.match(/\.hero__copy\s*\{[^}]+\}/)?.[0] ?? "";
+function heroIntroBlock() {
+  return css.match(/\.hero__intro\s*\{[^}]+\}/)?.[0] ?? "";
+}
+
+function heroNameBlock() {
+  return css.match(/\.hero__name\s*\{[^}]+\}/)?.[0] ?? "";
+}
+
+function heroWatermarkBlock() {
+  return css.match(/\.hero__watermark\s*\{[^}]+\}/)?.[0] ?? "";
+}
+
+function heroPortraitBlock() {
+  return css.match(/\.hero__portrait\s*\{[^}]+\}/)?.[0] ?? "";
+}
+
+function heroPortraitImageBlock() {
+  return css.match(/\.hero__portrait-image\s*\{[^}]+\}/)?.[0] ?? "";
+}
+
+function heroDeckBlock() {
+  return css.match(/\.hero__deck\s*\{[^}]+\}/)?.[0] ?? "";
+}
+
+/** The mobile-only block that turns the static logo row into the carousel. */
+function mediaBarCarouselBlock() {
+  const start = css.indexOf(
+    `@media (max-width: ${LOGO_CAROUSEL_BREAKPOINT_PX}px) and (prefers-reduced-motion: no-preference)`,
+  );
+  if (start === -1) {
+    throw new Error("Logo carousel media query is required");
+  }
+  return css.slice(start, css.indexOf("\n}", start));
 }
 
 function heroPhotoImageBlock() {
@@ -313,17 +429,16 @@ function parseClamp(declaration: string, property: string) {
 
 function verifyHeroCopyPhotoGap(
   hero = heroBlock(),
-  copy = heroCopyBlock(),
+  intro = heroIntroBlock(),
 ) {
   const columnGap = parseClamp(hero, "column-gap");
   expect(columnGap).toEqual(HERO_COLUMN_GAP);
   expect(hero).not.toContain(`gap: ${LEGACY_HERO_GAP}`);
   expect(hero).not.toContain(TOO_TIGHT_HERO_GAP);
-  expect(copy).toContain(`max-width: ${HERO_COPY_MAX_WIDTH}`);
-  expect(copy).toContain("justify-self: start");
-  expect(copy).toContain("margin-inline-start: var(--wordmark-name-inset)");
-  expect(copy).toContain("text-align: left");
-  expect(copy).not.toContain("justify-self: end");
+  expect(intro).toContain(`max-width: ${HERO_INTRO_MAX_WIDTH}`);
+  expect(intro).not.toContain(`max-width: ${LEGACY_HERO_COPY_MAX_WIDTH}`);
+  expect(intro).toContain("margin-inline-start: var(--wordmark-name-inset)");
+  expect(intro).toContain("align-self: end");
 }
 
 function parseWordmarkNameInset(source: string) {
@@ -345,9 +460,10 @@ function parseWordmarkNameInset(source: string) {
 
 function verifyHeroNameAlignsWithWordmark() {
   expect(parseWordmarkNameInset(css)).toBe(WORDMARK_NAME_INSET);
-  const copy = heroCopyBlock();
-  expect(copy).toContain("margin-inline-start: var(--wordmark-name-inset)");
-  expect(copy).toContain("justify-self: start");
+  const intro = heroIntroBlock();
+  const topics = css.match(/\.hero__topics\s*\{[^}]+\}/)?.[0] ?? "";
+  expect(intro).toContain("margin-inline-start: var(--wordmark-name-inset)");
+  expect(topics).toContain("var(--wordmark-name-inset)");
   const seal = css.match(/\.wordmark \.jasper-seal\s*\{[^}]+\}/)?.[0] ?? "";
   const wordmark = css.match(/\.wordmark\s*\{[^}]+\}/)?.[0] ?? "";
   expect(seal).toContain("width: 3.5rem");
@@ -384,7 +500,7 @@ function verifyHeroFitsMediaBarOnLoad() {
   const photo = css.match(/\.hero__photo\s*\{[^}]+\}/)?.[0] ?? "";
   expect(parseHeroFoldChrome(css)).toBe(HERO_FOLD_CHROME);
   expect(hero).not.toContain(LEGACY_HERO_PADDING);
-  expect(hero).toContain("padding: clamp(1.1rem, 2vw, 1.75rem) 0 clamp(0.9rem, 1.6vw, 1.5rem)");
+  expect(hero).toContain("padding: clamp(1.1rem, 2vw, 1.75rem) 0 0");
   expect(photo).not.toContain(LEGACY_HERO_PHOTO_MIN_HEIGHT);
   expect(photo).toContain("height: min(28rem, calc(100svh - var(--hero-fold-chrome)))");
   expect(photo).toContain("min-height: 0");
@@ -405,16 +521,57 @@ describe("visual identity in CSS", () => {
     verifyIdentityTokens();
   });
 
-  it("uses Libre Baskerville and IBM Plex", () => {
-    expect(css).toContain("Libre Baskerville");
-    expect(css).toContain("IBM Plex Sans");
-    expect(css).toContain("IBM Plex Mono");
+  it("never lets the page scroll sideways, without breaking the sticky masthead", () => {
+    const html = css.match(/^html\s*\{[^}]+\}/m)?.[0] ?? "";
+    const body = css.match(/^body\s*\{[^}]+\}/m)?.[0] ?? "";
+    const field = css.match(/\.network-field\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(html).toContain("overflow-x: clip");
+    expect(body).toContain("overflow-x: clip");
+    // hidden would make the root a scroll container and kill position:sticky
+    // on the masthead; clip clips without that side effect.
+    expect(html).not.toContain("overflow-x: hidden");
+    expect(body).not.toContain("overflow-x: hidden");
+    // The fixed backdrop is sized by inset, not by a scrollbar-inclusive vw.
+    expect(field).toContain("inset: 0");
+    expect(field).not.toContain("100vw");
   });
 
-  it("uses a white masthead with a border hairline", () => {
-    expect(css).toContain(".masthead");
-    expect(css).toContain("border-bottom: 1px solid var(--border)");
+  it("resolves every type role to Inter", () => {
+    const root = css.match(/:root\s*\{[^}]+\}/)?.[0] ?? "";
+    for (const token of ["--font-display", "--font-sans", "--font-mono"]) {
+      expect(root).toContain(`${token}: "Inter Variable", Inter,`);
+    }
+  });
+
+  it("loads Inter upright and italic and drops the retired faces", () => {
+    expect(css).toContain('@import "@fontsource-variable/inter";');
+    expect(css).toContain('@import "@fontsource-variable/inter/wght-italic.css";');
+    expect(css).not.toContain("Libre Baskerville");
+    expect(css).not.toContain("IBM Plex");
+    expect(css).not.toContain("@fontsource/");
+  });
+
+  it("lets the masthead take the background of the section below it", () => {
+    const masthead = css.match(/\.masthead\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(masthead).toContain("background: transparent");
+    expect(masthead).not.toContain("border-bottom");
     expect(css).not.toContain("var(--bronze)");
+  });
+
+  it("pins the masthead to the top of the viewport above the page", () => {
+    const masthead = css.match(/\.masthead\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(masthead).toContain("position: sticky");
+    expect(masthead).toContain("top: 0");
+    expect(masthead).toContain("z-index: 10");
+  });
+
+  it("glassifies the masthead only once the page has scrolled", () => {
+    const scrolled =
+      css.match(/\.masthead\[data-scrolled="true"\]\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(scrolled).toContain("backdrop-filter: blur(14px)");
+    expect(scrolled).toContain("-webkit-backdrop-filter: blur(14px)");
+    expect(scrolled).toContain("color-mix(in srgb, var(--background) 70%");
+    expect(css).toContain("@supports not (backdrop-filter: blur(1px))");
   });
 
   it("keeps the wordmark in navy on the light masthead", () => {
@@ -438,11 +595,64 @@ describe("visual identity in CSS", () => {
     expect(logo).toContain("width: auto");
   });
 
-  it("right-aligns desktop navigation against the Media Kit control", () => {
+  it("centers desktop navigation between the seal and the header control", () => {
+    const inner = css.match(/\.masthead__inner\s*\{[^}]+\}/)?.[0] ?? "";
     const nav = css.match(/\.desktop-nav\s*\{[^}]+\}/)?.[0] ?? "";
     const navList = css.match(/\.desktop-nav ul\s*\{[^}]+\}/)?.[0] ?? "";
-    expect(nav).toContain("justify-self: end");
-    expect(navList).toContain("justify-content: flex-end");
+    const cta = css.match(/\.header-cta\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(inner).toContain("grid-template-columns: 1fr auto 1fr");
+    expect(nav).toContain("justify-self: center");
+    expect(navList).toContain("justify-content: center");
+    expect(cta).toContain("justify-self: end");
+    expect(nav).not.toContain("justify-self: end");
+    expect(navList).not.toContain("justify-content: flex-end");
+  });
+
+  it("sweeps a gold fill across solid CTAs and trails them with an arrow", () => {
+    const fill =
+      css.match(/\.button-link:not\(\.button-link--ghost\)::before\s*\{[^}]+\}/)?.[0] ??
+      "";
+    const arrow =
+      css.match(/\.button-link:not\(\.button-link--ghost\)::after\s*\{[^}]+\}/)?.[0] ??
+      "";
+
+    expect(fill).toContain("background: var(--gold)");
+    expect(fill).toContain("transform: scaleX(0)");
+    expect(fill).toContain("transform-origin: right center");
+    expect(fill).toContain("z-index: -1");
+    expect(arrow).toContain('content: "→"');
+  });
+
+  it("clips the CTA fill and keeps it under the label", () => {
+    const base =
+      css.match(/\.button-link,\s*\.header-cta,\s*button\.button-link\s*\{[^}]+\}/)?.[0] ??
+      "";
+    expect(base).toContain("overflow: hidden");
+    expect(base).toContain("isolation: isolate");
+    expect(base).toContain("position: relative");
+  });
+
+  it("leaves the ghost CTA without a fill or an arrow", () => {
+    const ghost = css.match(/\.button-link--ghost\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(ghost).not.toContain("var(--gold)");
+    expect(css).not.toContain(".button-link--ghost::after");
+    expect(css).not.toContain(".button-link--ghost::before");
+  });
+
+  it("stops a disabled CTA from sweeping", () => {
+    const disabled = css.match(/\.button-link:disabled::before\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(disabled).toContain("transform: scaleX(0)");
+  });
+
+  it("marks the current nav item with a persistent rule and hover with a thin one", () => {
+    const hover = css.match(/\.desktop-nav a::after\s*\{[^}]+\}/)?.[0] ?? "";
+    const current =
+      css.match(/\.desktop-nav a\[aria-current="page"\]::after\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(hover).toContain("height: 1px");
+    expect(hover).toContain("transform: scaleX(0)");
+    expect(current).toContain("height: 2px");
+    expect(current).toContain("transform: scaleX(1)");
+    expect(current).toContain("background: var(--navy)");
   });
 
   it("keeps the circular seal circular", () => {
@@ -452,12 +662,23 @@ describe("visual identity in CSS", () => {
     expect(wordmarkSeal).toContain("width: 3.5rem");
   });
 
-  it("centers the home hero copy against the portrait", () => {
+  it("drops the hero text columns to the foot of the portrait band", () => {
     const hero = heroBlock();
-    const copy = heroCopyBlock();
-    expect(hero).toContain("align-items: center");
-    expect(copy).toContain("justify-content: center");
+    const intro = heroIntroBlock();
+    expect(hero).toContain("align-items: end");
+    expect(hero).not.toContain("align-items: center");
+    expect(intro).toContain("align-self: end");
     expect(css).not.toContain(".hero__coinsub");
+  });
+
+  it("lays the hero out as a name band above three flanking columns", () => {
+    const hero = heroBlock();
+    expect(hero).toContain(
+      "grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1fr)",
+    );
+    expect(hero).toContain('"name     name     name"');
+    expect(hero).toContain('"intro    portrait topics"');
+    expect(hero).toContain("isolation: isolate");
   });
 
   it("keeps the hero copy beside the portrait at half the previous gap", () => {
@@ -504,18 +725,22 @@ describe("visual identity in CSS", () => {
     );
   });
 
-  it("stacks the hero on small screens without a copy max-width", () => {
-    const copyBlocks = [...css.matchAll(/\.hero__copy\s*\{[^}]+\}/g)].map(
+  it("stacks the hero into a single column on small screens", () => {
+    const introBlocks = [...css.matchAll(/\.hero__intro\s*\{[^}]+\}/g)].map(
       (match) => match[0],
     );
-    expect(copyBlocks).toHaveLength(2);
-    expect(copyBlocks[0]).toContain(`max-width: ${HERO_COPY_MAX_WIDTH}`);
-    expect(copyBlocks[1]).toContain("max-width: none");
-    expect(copyBlocks[1]).toContain("justify-self: stretch");
-    expect(copyBlocks[1]).toContain("margin-inline-start: 0");
-    expect(css).toContain(".hero,");
+    expect(introBlocks).toHaveLength(2);
+    expect(introBlocks[0]).toContain(`max-width: ${HERO_INTRO_MAX_WIDTH}`);
+    expect(introBlocks[1]).toContain("max-width: none");
+    expect(introBlocks[1]).toContain("margin-inline-start: 0");
+
     const mobile = css.slice(css.indexOf("@media (max-width: 900px)"));
-    expect(mobile).toContain("grid-template-columns: 1fr");
+    const mobileHero = mobile.match(/\.hero\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(mobileHero).toContain("grid-template-columns: minmax(0, 1fr)");
+    expect(mobileHero).toContain('"name"');
+    expect(mobileHero).toContain('"portrait"');
+    expect(mobileHero).toContain('"intro"');
+    expect(mobileHero).toContain('"topics"');
   });
 
   it("keeps the portrait in a 4:5 cover frame", () => {
@@ -550,6 +775,190 @@ describe("visual identity in CSS", () => {
     );
   });
 
+  it("sets the hero name in Inter bold caps at display scale", () => {
+    const name = heroNameBlock();
+    const fontSize = parseClamp(name, "font-size");
+    expect(name).toContain("font-family: var(--font-display)");
+    expect(name).toContain(HERO_NAME_WEIGHT);
+    expect(name).toContain("text-transform: uppercase");
+    expect(name).toContain("text-align: center");
+    expect(name).toContain("color: var(--navy)");
+    expect(fontSize.min).toBe(HERO_NAME_FONT_SIZE.min);
+    expect(fontSize.preferred).toBe(HERO_NAME_FONT_SIZE.preferred);
+    expect(fontSize.max).toBe(HERO_NAME_FONT_SIZE.max);
+  });
+
+  it("keeps the hero body copy at regular weight behind the bold name", () => {
+    const deck = heroDeckBlock();
+    const topic = css.match(/\.hero__topic\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(deck).toContain(HERO_BODY_WEIGHT);
+    expect(deck).not.toContain(HERO_NAME_WEIGHT);
+    expect(deck).not.toContain(LEGACY_HERO_ITALIC_DECK);
+    expect(topic).toContain(HERO_BODY_WEIGHT);
+  });
+
+  it("ghosts the first name behind the headline without catching clicks", () => {
+    const watermark = heroWatermarkBlock();
+    expect(watermark).toContain("position: absolute");
+    expect(watermark).toContain("z-index: 0");
+    expect(watermark).toContain(`color: ${HERO_WATERMARK_TINT}`);
+    expect(watermark).toContain("pointer-events: none");
+    expect(watermark).toContain("user-select: none");
+    expect(watermark).toContain("text-transform: uppercase");
+  });
+
+  it("lifts the portrait over the name so the letters run behind the head", () => {
+    const name = heroNameBlock();
+    const portrait = heroPortraitBlock();
+    const lift = parseClamp(portrait, "margin-top");
+    expect(name).toContain("z-index: 1");
+    expect(portrait).toContain("z-index: 2");
+    expect(lift.min).toBe(HERO_PORTRAIT_LIFT.min);
+    expect(lift.preferred).toBe(HERO_PORTRAIT_LIFT.preferred);
+    expect(lift.max).toBe(HERO_PORTRAIT_LIFT.max);
+  });
+
+  it("dissolves the cutout's shoulders into the page", () => {
+    const image = heroPortraitImageBlock();
+    expect(image).toContain(`mask-image: ${HERO_PORTRAIT_FADE}`);
+    expect(image).toContain(`-webkit-mask-image: ${HERO_PORTRAIT_FADE}`);
+    // The transparent cutout carries its own edges, so the elliptical
+    // all-edge mask the backdrop JPEG needed is gone.
+    expect(image).not.toContain(LEGACY_HERO_PORTRAIT_EDGE_MASK);
+    expect(image).toContain("width: 100%");
+    expect(image).toContain("height: auto");
+  });
+
+  it("holds the halftone bloom below the headline and behind the portrait", () => {
+    const halftone =
+      css.match(/\.hero__portrait-halftone\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(halftone).toContain("z-index: -1");
+    expect(halftone).toContain("inset: 16% -24% 14%");
+    expect(halftone).toContain("pointer-events: none");
+    expect(halftone).toContain("background-size: 10px 10px");
+  });
+
+  it("marks the featured hero topic and mutes the rest", () => {
+    const topic = css.match(/\.hero__topic\s*\{[^}]+\}/)?.[0] ?? "";
+    const featured =
+      css.match(/\.hero__topic--featured\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(topic).toContain("color: color-mix(in srgb, var(--navy) 38%, transparent)");
+    expect(featured).toContain("color: var(--navy)");
+    expect(featured).toContain("font-weight: 500");
+  });
+
+  it("trails the shared marker link with slashes and an arrow", () => {
+    const before = css.match(/\.marker-link::before\s*\{[^}]+\}/)?.[0] ?? "";
+    const after = css.match(/\.marker-link::after\s*\{[^}]+\}/)?.[0] ?? "";
+    const hover = css.match(/\.marker-link:hover::after\s*\{[^}]+\}/)?.[0] ?? "";
+    // Shared by the hero and the biography, so the hero-scoped name is gone.
+    expect(css).not.toContain(".hero__cta");
+    expect(before).toContain('content: "//"');
+    expect(after).toContain('content: "→"');
+    expect(hover).toContain("transform: translateX(0.35rem)");
+  });
+
+  it("splits the featured interview header over a full-width player", () => {
+    const section = css.match(/\.featured-interview\s*\{[^}]+\}/)?.[0] ?? "";
+    const media =
+      css.match(/\.featured-interview__media\s*\{[^}]+\}/)?.[0] ?? "";
+    const credit =
+      css.match(/\.featured-interview__credit\s*\{[^}]+\}/)?.[0] ?? "";
+    const title =
+      css.match(/\.featured-interview__title\s*\{[^}]+\}/)?.[0] ?? "";
+    const aside =
+      css.match(/\.featured-interview__aside\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(section).toContain(
+      "grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr)",
+    );
+    expect(section).toContain("align-items: start");
+    // The headline fills its column; an 18ch cap broke it over five lines.
+    expect(title).toContain("max-width: none");
+    expect(title).not.toContain("max-width: 18ch");
+    // Both columns start on the same top line, level with the eyebrow.
+    expect(aside).toContain("padding-top: 0");
+    // The player spans both columns and rounds off rather than bleeding.
+    expect(media).toContain("grid-column: 1 / -1");
+    expect(media).toContain("border-radius: var(--radius)");
+    expect(media).toContain("overflow: hidden");
+    expect(credit).toContain("display: flex");
+    expect(credit).toContain("align-items: center");
+  });
+
+  it("stacks the featured interview on small screens", () => {
+    const mobile = css.slice(css.indexOf("@media (max-width: 900px)"));
+    expect(mobile).toContain(".featured-interview,");
+  });
+
+  it("opens the post card out of its bordered box onto the page", () => {
+    const thumb = css.match(/\.card--thumb\s*\{[^}]+\}/)?.[0] ?? "";
+    const media =
+      css.match(/\.card--thumb \.card__media\s*\{[^}]+\}/)?.[0] ?? "";
+    const base =
+      css.match(/\.card,\s*\.copy-block,\s*\.inquiry-form,\s*\.calendar\s*\{[^}]+\}/)?.[0] ??
+      "";
+    expect(thumb).toContain("background: transparent");
+    expect(thumb).toContain("border: 0");
+    // The thumbnail's own corners carry the shape now.
+    expect(media).toContain("border-radius: var(--radius)");
+    // Plain .card keeps its frame for the other pages that use it.
+    expect(base).toContain("border: 1px solid var(--border)");
+  });
+
+  it("foots each post card with a full-width solid button", () => {
+    const block = css.match(/\.button-link--block\s*\{[^}]+\}/)?.[0] ?? "";
+    const base =
+      css.match(/\.button-link,\s*\.header-cta,\s*button\.button-link\s*\{[^}]+\}/)?.[0] ??
+      "";
+    expect(block).toContain("width: 100%");
+    expect(block).toContain("display: flex");
+    // Reuses the site's one solid button rather than a second style, so the
+    // navy fill, pill radius, and gold sweep all come along.
+    expect(base).toContain("background: var(--navy)");
+    expect(base).toContain("color: var(--white)");
+    expect(base).toContain("border-radius: var(--radius-pill)");
+    // The retired mono arrow link is gone entirely.
+    expect(css).not.toContain(".card__link");
+  });
+
+  it("marks off-site card buttons with a diagonal arrow", () => {
+    const external =
+      css.match(/\.button-link\.button-link--external::after\s*\{[^}]+\}/)?.[0] ?? "";
+    const internal =
+      css.match(/\.button-link:not\(\.button-link--ghost\)::after\s*\{[^}]+\}/)?.[0] ??
+      "";
+    expect(internal).toContain('content: "→"');
+    expect(external).toContain('content: "↗"');
+    // Same specificity as the base rule, so it has to come after it to win.
+    expect(css.indexOf(".button-link.button-link--external::after")).toBeGreaterThan(
+      css.indexOf(".button-link:not(.button-link--ghost)::after"),
+    );
+  });
+
+  it("drops every post card button onto one baseline", () => {
+    const thumb = css.match(/\.card--thumb\s*\{[^}]+\}/)?.[0] ?? "";
+    // Anchored to a line start so it matches the standalone rule, not the
+    // trailing selector of the margin reset above it.
+    const foot =
+      css.match(/^\.card--thumb \.button-link\s*\{[^}]+\}/m)?.[0] ?? "";
+    // A flex column plus margin-top:auto pins the button to the card foot,
+    // so summaries of different lengths still line their buttons up.
+    expect(thumb).toContain("display: flex");
+    expect(thumb).toContain("flex-direction: column");
+    expect(foot).toContain("margin-top: auto");
+  });
+
+  it("stacks the post header action beneath its title", () => {
+    const head = css.match(/\.post-head\s*\{[^}]+\}/)?.[0] ?? "";
+    const title = css.match(/\.post-head__title\s*\{[^}]+\}/)?.[0] ?? "";
+    // Stacked, not split beside the title, so the action reads in the same
+    // order as the hero's marker link under its deck.
+    expect(head).toContain("display: block");
+    expect(head).not.toContain("grid-template-columns");
+    expect(title).toContain("margin: 0 0 1.35rem");
+    expect(css).not.toContain(".post-head__cta");
+  });
+
   it("sizes media-bar outlet logos larger, with CEO Magazine extra-large", () => {
     const logo = css.match(/\.media-bar__logo\s*\{[^}]+\}/)?.[0] ?? "";
     const ceo = css.match(/\.media-bar__logo--ceo\s*\{[^}]+\}/)?.[0] ?? "";
@@ -558,17 +967,113 @@ describe("visual identity in CSS", () => {
     expect(ceo).toContain("height: 3.35rem");
   });
 
-  it("loops the media-bar logos with a seamless marquee", () => {
+  it("shows every outlet at rest on desktop, with no marquee or edge blur", () => {
     const track = css.match(/\.media-bar__track\s*\{[^}]+\}/)?.[0] ?? "";
+    const group = css.match(/\.media-bar__group\s*\{[^}]+\}/)?.[0] ?? "";
+    const edge = css.match(/\.media-bar__edge\s*\{[^}]+\}/)?.[0] ?? "";
+    const hiddenCopy =
+      css.match(/\.media-bar__group\[aria-hidden="true"\]\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(track).toContain("width: 100%");
+    expect(track).not.toContain("animation:");
+    const bar = css.match(/\.media-bar\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(group).toContain("width: 100%");
+    expect(group).toContain("flex-wrap: wrap");
+    // Distributed across a capped, centred row. Spanning the whole monitor
+    // drifted the logos ~400px apart, which is the spacing this replaced.
+    expect(group).toContain("justify-content: space-between");
+    expect(group).toContain(`max-width: var(--${MEDIA_BAR_ROW_MAX_TOKEN})`);
+    expect(group).toContain("margin-inline: auto");
+    expect(bar).toContain(`--${MEDIA_BAR_ROW_MAX_TOKEN}: ${MEDIA_BAR_ROW_MAX}`);
+    // The gap stays the floor so a narrow row never crowds.
+    expect(group).toContain("gap: var(--media-bar-gap)");
+    // The duplicate copies exist only to seam the mobile loop.
+    expect(hiddenCopy).toContain("display: none");
+    expect(edge).toContain("display: none");
+  });
+
+  it("loops the media-bar logos with a seamless marquee only on mobile", () => {
+    const carousel = mediaBarCarouselBlock();
     const keyframes = css.match(
       /@keyframes media-bar-marquee\s*\{[\s\S]*?\n\}/,
     )?.[0] ?? "";
+    expect(carousel).toContain(
+      "animation: media-bar-marquee 32s linear infinite",
+    );
+    expect(carousel).toContain("animation-play-state: paused");
+    expect(carousel).toContain("display: block");
+    // One copy of four, so the travel is a quarter of the track. The retired
+    // -50% belonged to the two-copy loop.
+    expect(keyframes).toContain(`translateX(-${100 / MEDIA_BAR_LOOP_COPIES}%)`);
+    expect(keyframes).not.toContain("translateX(-50%)");
+  });
+
+  it("gates the carousel on both the breakpoint and motion preference", () => {
+    // Gated on no-preference so it never has to out-order the reduced-motion
+    // block, which stops the animation wherever it does apply.
+    expect(css).toContain(
+      `@media (max-width: ${LOGO_CAROUSEL_BREAKPOINT_PX}px) and (prefers-reduced-motion: no-preference)`,
+    );
     const reduced = css.match(
       /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/,
     )?.[0] ?? "";
-    expect(track).toContain("animation: media-bar-marquee 32s linear infinite");
-    expect(keyframes).toContain("translateX(-50%)");
     expect(reduced).toContain("animation: none");
+  });
+
+  it("packs the mobile logos tightly and matches the spacing at the seam", () => {
+    const bar = css.match(/\.media-bar\s*\{[^}]+\}/)?.[0] ?? "";
+    const group = mediaBarCarouselBlock().match(
+      /\.media-bar__group\s*\{[^}]+\}/,
+    )?.[0] ?? "";
+    expect(bar).toContain(`--media-bar-gap: ${MEDIA_BAR_GAP}`);
+    // Sized to its logos, not the viewport — the retired 100vw copy is what
+    // forced the logos to the far edges of the screen.
+    expect(group).toContain("width: max-content");
+    expect(group).not.toContain("width: 100vw");
+    expect(group).toContain("flex-wrap: nowrap");
+    // The trailing padding is the same value as the gap, so the join between
+    // two copies is spaced exactly like the logos inside one.
+    expect(group).toContain("padding-inline: 0 var(--media-bar-gap)");
+    expect(group).toContain("min-width: 25vw");
+  });
+
+  it("runs the media bar straight out of the hero with no dividing rules", () => {
+    const bar = css.match(/\.media-bar\s*\{[^}]+\}/)?.[0] ?? "";
+    // Neither edge is ruled: the strip flows out of the hero above it and
+    // into the biography below it on open white.
+    expect(bar).not.toContain("border-top");
+    expect(bar).not.toContain("border-bottom");
+    expect(bar).toContain(`padding: ${MEDIA_BAR_PADDING}`);
+    expect(bar).not.toContain(LEGACY_MEDIA_BAR_PADDING);
+    expect(bar).toContain("margin-bottom: 0");
+  });
+
+  it("gives the media-bar a 3D stage for the logo carousel curve", () => {
+    const bar = css.match(/\.media-bar\s*\{[^}]+\}/)?.[0] ?? "";
+    const track = css.match(/\.media-bar__track\s*\{[^}]+\}/)?.[0] ?? "";
+    const link = css.match(/\.media-bar__link\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(bar).toContain("position: relative");
+    expect(bar).toContain("perspective: 1400px");
+    expect(track).toContain("transform-style: preserve-3d");
+    expect(link).toContain("transform-style: preserve-3d");
+    expect(link).toContain("transition: filter 120ms linear, opacity 120ms linear");
+  });
+
+  it("blurs the media-bar edges into the background instead of hard-cutting", () => {
+    const edge = css.match(/\.media-bar__edge\s*\{[^}]+\}/)?.[0] ?? "";
+    const left = css.match(/\.media-bar__edge--left\s*\{[^}]+\}/)?.[0] ?? "";
+    const right = css.match(/\.media-bar__edge--right\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(edge).toContain("backdrop-filter: blur(6px)");
+    expect(edge).toContain("-webkit-backdrop-filter: blur(6px)");
+    expect(edge).toContain("pointer-events: none");
+    expect(left).toContain("mask-image: linear-gradient(to right, black, transparent)");
+    expect(right).toContain("mask-image: linear-gradient(to left, black, transparent)");
+  });
+
+  it("freezes the per-logo curve transition under reduced motion", () => {
+    const reduced = css.match(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
+    expect(reduced).toContain(".media-bar__link");
   });
 
   it("sizes the home Company Coinsub logo to the h2 type scale", () => {
@@ -591,10 +1096,26 @@ describe("visual identity in CSS", () => {
     expect(title).toContain("font-size: 1rem");
   });
 
-  it("places the media kit request copy beside the speaking photo", () => {
-    const layout = css.match(/\.media-kit-request\s*\{[^}]+\}/)?.[0] ?? "";
-    expect(layout).toContain("grid-template-columns:");
-    expect(layout).toContain("align-items: center");
+  it("centres the media kit ask on one screen with the form in a dialog", () => {
+    const hero = css.match(/\.media-kit-hero\s*\{[^}]+\}/)?.[0] ?? "";
+    const dialog = css.match(/\.request-dialog\s*\{[^}]+\}/)?.[0] ?? "";
+    const panel = css.match(/\.request-dialog__panel\s*\{[^}]+\}/)?.[0] ?? "";
+    // The ask fills the screen below the masthead and centres within it.
+    // The article's own top padding must stay zeroed: leave it in and the
+    // hero starts 70px low, which pushes the ask off the optical centre.
+    const article = css.match(/\.media-kit-page\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(hero).toContain("min-height: calc(100dvh - 5.5rem)");
+    expect(article).toContain("padding-top: 0");
+    expect(hero).toContain("align-content: center");
+    expect(hero).toContain("text-align: center");
+    // The dialog scrolls inside itself so a long form never overruns the viewport.
+    expect(dialog).toContain("max-height: 86dvh");
+    expect(dialog).toContain("overflow: auto");
+    expect(css).toContain(".request-dialog::backdrop");
+    // The centred hero must not centre the form's labels too.
+    expect(panel).toContain("text-align: left");
+    // The still, its frame, and the two-column treatment are all retired.
+    expect(css).not.toContain(".media-kit-request");
   });
 
   it("pins a semitranslucent network field behind the page", () => {
@@ -614,35 +1135,36 @@ describe("visual identity in CSS", () => {
     expect(title).toContain("width: 100%");
   });
 
-  it("frames a compact About portrait at 4:5 with a 16px radius", () => {
-    const frame = aboutPortraitBlock();
-    expect(frame).toContain("aspect-ratio: 4 / 5");
-    expect(frame).toContain("border-radius: var(--radius)");
-    expect(frame).toContain("background: var(--sky-pale)");
-    expect(frame).toContain(`max-width: ${ABOUT_PORTRAIT_MAX_WIDTH}`);
+  it("frames the showcase still as a top-anchored cinematic crop", () => {
+    verifyShowcaseCard();
   });
 
-  it("doubles the gold About header against the eyebrow scale", () => {
-    verifyAboutGoldHeader();
+  it("sets the About label at the sitewide eyebrow scale in sky, with no rule beneath", () => {
+    verifyAboutPageLabel();
   });
 
-  it("rejects a missing or non-doubled About gold header", () => {
-    expect(() => parseAboutGoldHeaderSize(".eyebrow { font-size: 0.75rem; }")).toThrow(
-      "About gold header rule is required",
+  it("rejects a missing, mis-scaled, or retired gold About label", () => {
+    expect(() => parseAboutPageLabelSize(".eyebrow { font-size: 0.75rem; }")).toThrow(
+      "About page label rule is required",
     );
     expect(() =>
-      parseAboutGoldHeaderSize(".page-head--label .eyebrow { color: var(--gold); }"),
-    ).toThrow("About gold header font-size is required");
+      parseAboutPageLabelSize(".page-head--label .eyebrow { color: var(--sky); }"),
+    ).toThrow("About page label font-size is required");
     expect(() =>
-      parseAboutGoldHeaderSize(
-        ".page-head--label .eyebrow { font-size: 1.5px; }",
+      parseAboutPageLabelSize(
+        ".page-head--label .eyebrow { font-size: 0.75px; }",
       ),
-    ).toThrow("About gold header must be a rem length");
+    ).toThrow("About page label must be a rem length");
     expect(() =>
-      parseAboutGoldHeaderSize(
-        ".page-head--label .eyebrow { font-size: 0.75rem; }",
+      parseAboutPageLabelSize(
+        ".page-head--label .eyebrow { font-size: 1.5rem; }",
       ),
-    ).toThrow("About gold header must be 1.5rem (2x the eyebrow)");
+    ).toThrow("Doubled gold About label is not published");
+    expect(() =>
+      parseAboutPageLabelSize(
+        ".page-head--label .eyebrow { font-size: 1rem; }",
+      ),
+    ).toThrow("About page label must be 0.75rem (the eyebrow scale)");
   });
 
   it("formats the About bio with paragraph rhythm and a left quote", () => {
@@ -678,32 +1200,34 @@ describe("visual identity in CSS", () => {
     ).toThrow("About bio max font-size must be 10% smaller");
   });
 
-  it("keeps the About bio beside a smaller portrait instead of under it", () => {
-    verifyAboutBioBesidePortrait();
+  it("sets the About bio in one measured column under the hero card", () => {
+    verifyAboutBioColumn();
   });
 
-  it("rejects a missing or out-of-range About portrait max-width", () => {
-    expect(() => parseAboutPortraitMaxWidth(".about-bio { display: grid; }")).toThrow(
-      "About portrait rule is required",
+  it("rejects a showcase crop that would put the broadcast chyron back on screen", () => {
+    expect(() => parseShowcaseAspectRatio(".about-bio { display: grid; }")).toThrow(
+      "Showcase image rule is required",
     );
     expect(() =>
-      parseAboutPortraitMaxWidth(".about-portrait { aspect-ratio: 4 / 5; }"),
-    ).toThrow("About portrait max-width is required");
+      parseShowcaseAspectRatio(".showcase__image { object-fit: cover; }"),
+    ).toThrow("Showcase image aspect-ratio is required");
+    // 16:9 is the source ratio, so it crops nothing and shows the chyron.
     expect(() =>
-      parseAboutPortraitMaxWidth(".about-portrait { max-width: 16px; }"),
-    ).toThrow("About portrait max-width must be a rem length");
+      parseShowcaseAspectRatio(".showcase__image { aspect-ratio: 16 / 9; }"),
+    ).toThrow("Showcase crop must stay wide enough to cut the broadcast lower-third");
     expect(() =>
-      parseAboutPortraitMaxWidth(".about-portrait { max-width: 23rem; }"),
-    ).toThrow("About portrait max-width cannot be below 24rem");
+      parseShowcaseAspectRatio(".showcase__image { aspect-ratio: 4 / 5; }"),
+    ).toThrow("Showcase crop must stay wide enough to cut the broadcast lower-third");
     expect(() =>
-      parseAboutPortraitMaxWidth(".about-portrait { max-width: 41rem; }"),
-    ).toThrow("About portrait max-width cannot be above 40rem");
-    expect(parseAboutPortraitMaxWidth(".about-portrait { max-width: 24rem; }")).toBe(
-      "24rem",
-    );
-    expect(parseAboutPortraitMaxWidth(".about-portrait { max-width: 40rem; }")).toBe(
-      "40rem",
-    );
+      parseShowcaseAspectRatio(".showcase__image { aspect-ratio: 4 / 1; }"),
+    ).toThrow(`Showcase crop cannot be wider than ${SHOWCASE_ASPECT_RATIO_MAX}:1`);
+    // Boundaries: exactly at the minimum crop and exactly at the maximum.
+    expect(
+      parseShowcaseAspectRatio(".showcase__image { aspect-ratio: 2.32 / 1; }"),
+    ).toBe("2.32 / 1");
+    expect(
+      parseShowcaseAspectRatio(".showcase__image { aspect-ratio: 3 / 1; }"),
+    ).toBe("3 / 1");
   });
 
   it("pulls the press inquiry form up beside the title", () => {

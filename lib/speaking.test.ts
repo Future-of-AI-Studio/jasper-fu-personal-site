@@ -6,7 +6,6 @@ import {
   type SpeakingBookingDraft,
   MAX_SPEAKING_AUDIENCE,
   MAX_SPEAKING_BUDGET,
-  MAX_SPEAKING_DATE,
   MAX_SPEAKING_EVENT_NAME,
   MAX_SPEAKING_LOCATION,
   MAX_SPEAKING_NAME,
@@ -32,7 +31,8 @@ function makeSpeakingDraft(
     ...emptySpeakingBooking,
     engagementType: "Conference keynote",
     eventName: "AI Summit 2026",
-    date: "Oct 14–15",
+    startDate: "2026-10-14",
+    endDate: "2026-10-15",
     location: "New York",
     audience: "500",
     name: "Jane Doe",
@@ -102,7 +102,8 @@ describe("parseSpeakingBooking", () => {
   it("accepts optional fields when blank", () => {
     const booking = parseSpeakingBooking(
       makeSpeakingDraft({
-        date: " ",
+        startDate: " ",
+        endDate: "",
         location: "",
         audience: "",
         phone: "",
@@ -111,14 +112,56 @@ describe("parseSpeakingBooking", () => {
       }),
     );
     verifySpeakingBooking(booking);
-    expect(booking.date).toBeUndefined();
+    expect(booking.startDate).toBeUndefined();
+    expect(booking.endDate).toBeUndefined();
     expect(booking.phone).toBeUndefined();
     expect(booking.notes).toBeUndefined();
   });
 
+  it("accepts a single-day booking where both dates match", () => {
+    const booking = parseSpeakingBooking(
+      makeSpeakingDraft({ startDate: "2026-10-14", endDate: "2026-10-14" }),
+    );
+    expect(booking.startDate).toBe("2026-10-14");
+    expect(booking.endDate).toBe("2026-10-14");
+  });
+
+  it("accepts a start date with no end date", () => {
+    const booking = parseSpeakingBooking(
+      makeSpeakingDraft({ startDate: "2026-10-14", endDate: "" }),
+    );
+    expect(booking.startDate).toBe("2026-10-14");
+    expect(booking.endDate).toBeUndefined();
+  });
+
+  it("rejects an end date that falls before the start date", () => {
+    verifySpeakingFailure(
+      { startDate: "2026-10-15", endDate: "2026-10-14" },
+      "End date cannot be before the start date",
+    );
+  });
+
+  it("rejects an end date with no start date", () => {
+    verifySpeakingFailure(
+      { startDate: "", endDate: "2026-10-15" },
+      "Start date is required with an end date",
+    );
+  });
+
+  it.each([
+    [{ startDate: "Oct 14" }, "Start date must be a valid date"],
+    [{ endDate: "next tuesday" }, "End date must be a valid date"],
+    // Right shape, impossible calendar date — the pattern alone lets these
+    // through, so the value is round-tripped through Date.
+    [{ startDate: "2026-13-01", endDate: "" }, "Start date must be a valid date"],
+    [{ startDate: "2026-02-30", endDate: "" }, "Start date must be a valid date"],
+    [{ endDate: "2026-11-31" }, "End date must be a valid date"],
+  ] as const)("rejects a malformed date %s", (overrides, message) => {
+    verifySpeakingFailure(overrides, message);
+  });
+
   it.each([
     [{ eventName: "e".repeat(MAX_SPEAKING_EVENT_NAME + 1) }, "Event name is too long"],
-    [{ date: "d".repeat(MAX_SPEAKING_DATE + 1) }, "Date is too long"],
     [{ location: "l".repeat(MAX_SPEAKING_LOCATION + 1) }, "Location is too long"],
     [{ audience: "a".repeat(MAX_SPEAKING_AUDIENCE + 1) }, "Audience size is too long"],
     [{ name: "n".repeat(MAX_SPEAKING_NAME + 1) }, "Full name is too long"],

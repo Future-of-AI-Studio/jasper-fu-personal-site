@@ -686,3 +686,273 @@ Source: [`docs/TESTING_GUIDE.md`](../docs/TESTING_GUIDE.md) Quick Reference.
 - [x] DRY setup — `unlockPageBlock` / `unlockCardBlock` / `unlockSealBlock` / `unlockButtonBlock`
 - [x] Unique error messages — page rule required vs must not paint its own background vs seal must be centred vs button must be centred
 - [x] Path coverage — served stylesheet re-checked over curl; `background: var(--paper)` gone; copy stays left-aligned
+
+---
+
+## Feature: About guarded career timeline and credentials
+
+**Paths / functions touched:** `lib/copy.ts`, `lib/copy.test.ts`, `app/about/page.tsx`
+
+- [x] Happy path — the same 4 career-timeline items and 3 credentials still render, now parsed through a guard
+- [x] Validation — empty and placeholder items throw distinct errors for each list
+- [x] Access control — N/A: public About content, no auth
+- [x] Boundary conditions — item counts at MIN-1/MIN/MAX/MAX+1 rejected or accepted per list
+- [x] Verification function — `parseCareerTimeline` / `parseCredentials`
+- [x] DRY setup — shared `timelineItems(count)` fixture factory
+- [x] Unique error messages — item required vs item is a placeholder vs below-min vs above-max vs items must each be unique, per list
+- [x] Path coverage — both guards fully exercised; page output unchanged
+
+---
+
+## Feature: About polished portrait replaces placeholder
+
+**Paths / functions touched:** `app/about/page.tsx`, `app/public-routes.test.tsx`
+
+- [x] Happy path — portrait renders `/portraits/jasper-fu-about.jpg` at its real 780x975
+- [x] Validation — N/A: single hardcoded published source, no guard branch added
+- [x] Access control — N/A: public About portrait, no auth
+- [x] Boundary conditions — N/A: single image, not a bounded list
+- [x] Verification function — `verifyAboutPortrait`
+- [x] DRY setup — `renderAbout`
+- [x] Unique error messages — N/A: static presentational swap
+- [x] Path coverage — placeholder source absent; new source and corrected height present; confirmed by screenshot against the overlay gradient
+
+---
+
+## Feature: About quick facts stat row
+
+**Paths / functions touched:** `lib/copy.ts`, `lib/copy.test.ts`, `app/about/page.tsx`, `app/public-routes.test.tsx`
+
+- [x] Happy path — 3 quick facts render in `.fact-grid` right after the bio, first card `.stat-card--primary`
+- [x] Validation — empty label/value/detail and placeholder value throw distinct errors
+- [x] Access control — N/A: public About content, no auth
+- [x] Boundary conditions — fact counts at MIN-1/MIN/MAX/MAX+1 rejected or accepted against the fixed 3-column grid
+- [x] Verification function — `verifyAboutQuickFacts`
+- [x] DRY setup — `quickFactRows(count)` factory
+- [x] Unique error messages — label required vs value required vs detail required vs placeholder vs below-min vs above-max vs labels must each be unique
+- [x] Path coverage — `parseQuickFacts` fully exercised; confirmed by screenshot
+
+---
+
+## Feature: About pull-quotes section restored
+
+**Paths / functions touched:** `lib/copy.ts`, `lib/copy.test.ts`, `app/about/page.tsx`, `app/public-routes.test.tsx`
+
+- [x] Happy path — all 4 pull-quotes render as unattributed `.quote-card` blocks
+- [x] Validation — empty and placeholder quote text throw distinct errors
+- [x] Access control — N/A: public About copy, no auth
+- [x] Boundary conditions — quote counts at MIN-1/MIN/MAX/MAX+1 rejected or accepted; quotes must be unique
+- [x] Verification function — `verifyAboutPullQuotesSection`
+- [x] DRY setup — `pullQuoteStrings(count)` factory
+- [x] Unique error messages — quote required vs quote is a placeholder vs below-min vs above-max vs quotes must each be unique
+- [x] Path coverage — page-wide zero-`<cite>` invariant re-verified; previous "omits the unused pull-quote list from About" test replaced with a positive presence test; the unrelated home-page `pullQuotes[0]` absence test (`app/page.test.tsx`) re-run and confirmed unaffected
+
+---
+
+## Feature: About FAQ section restored, programmable-money stub excluded
+
+**Paths / functions touched:** `lib/copy.ts`, `lib/copy.test.ts`, `app/globals.css`, `app/about/page.tsx`, `app/public-routes.test.tsx`
+
+- [x] Happy path — the first 3 FAQ questions render as native `<details>`/`<summary>`, verified both closed and opened
+- [x] Validation — empty question/answer and the drafted pending-stub answer throw distinct errors
+- [x] Access control — N/A: public About copy, no auth
+- [x] Boundary conditions — published count below 1 rejected, above available questions rejected, a locally-built 4-item fixture proves count=4 works once given real copy
+- [x] Verification function — `verifyAboutFaqSection`
+- [x] DRY setup — reuses the real `aboutFaqs` array plus one local 4-item fixture for the future-bump test
+- [x] Unique error messages — question required vs answer required vs answer is still a pending stub vs count below 1 vs count exceeds available questions vs questions must each be unique
+- [x] Path coverage — "Who is David Akers?" and "collaborative co-founder effort" absence assertions removed from two prior tests (`verifyAboutAbsences`, and the renamed "omits 250-word-only copy, approved lengths, and the standalone co-founder card" test); "What does programmable money mean?" and "Definition pending" remain asserted absent; open/closed states confirmed by screenshot
+
+---
+
+## Feature: About header and portrait restyle
+
+**Paths / functions touched:** `app/globals.css`, `app/about/page.tsx`, `lib/identity-css.test.ts`, `app/public-routes.test.tsx`
+
+- [x] Happy path — "About" label renders at the sitewide eyebrow scale in sky, the cash-to-digital quote leads at display scale, and the portrait renders uncaptioned
+- [x] Validation — a missing rule, a missing font-size, a non-rem unit, the retired doubled-gold size, and any other off-scale value each throw distinct errors
+- [x] Access control — N/A: public About chrome, no auth
+- [x] Boundary conditions — label pinned to exactly the eyebrow scale (0.75rem); 1.5rem rejected by name as retired, 1rem rejected as off-scale
+- [x] Verification function — `verifyAboutPageLabel` / `parseAboutPageLabelSize` / `verifyAboutBioProse` / `verifyAboutPortrait`
+- [x] DRY setup — `aboutPageLabelBlock` / `renderAbout`; `ABOUT_LABEL_REM` and `ABOUT_QUOTE_FONT_SIZE` pinned beside their retired counterparts
+- [x] Unique error messages — label rule required vs font-size required vs must be a rem length vs doubled gold label is not published vs must be the eyebrow scale
+- [x] Path coverage — gold label, navy rule, gold quote border, and the whole portrait scrim (`__overlay`/`__name`/`__thesis`) asserted absent from both the stylesheet and the DOM; `identity.thesis` asserted absent from the page entirely; desktop and 390px screenshots confirm the rendering
+
+---
+
+## Feature: About hero showcase card
+
+**Paths / functions touched:** `lib/identity.ts`, `lib/identity.test.ts`, `app/globals.css`, `app/about/page.tsx`, `lib/identity-css.test.ts`, `app/public-routes.test.tsx`
+
+- [x] Happy path — centred label, locked one-liner at display scale, quote as its deck, and the NYSE still framed as a hero card carrying the name, role, and all three quick facts
+- [x] Validation — `assertLockedOneLiner` rejects empty, placeholder, the retired trust-as-architecture line, and any other wording; `parseShowcaseAspectRatio` rejects a missing rule, a missing ratio, and any crop that would expose the broadcast chyron
+- [x] Access control — N/A: public About chrome, no auth
+- [x] Boundary conditions — crop ratio accepted exactly at the 2.32 minimum and the 3:1 maximum, rejected just outside both; 16:9 (the uncropped source ratio) rejected by name
+- [x] Verification function — `verifyShowcaseCard` / `parseShowcaseAspectRatio` / `verifyAboutShowcase` / `verifyAboutBioColumn` / `verifyRetiredQuickFactsBand`
+- [x] DRY setup — `showcaseImageBlock`; reuses the already-guarded `MEDIA_KIT_SPEAKING_PHOTO` / `assertMediaKitPhoto` rather than duplicating the asset path
+- [x] Unique error messages — one-liner required vs placeholder vs trust-as-architecture vs must be the orchestration-layer line; showcase rule required vs aspect-ratio required vs must be a numeric ratio vs must stay wide enough to cut the broadcast lower-third vs cannot be wider than 3:1
+- [x] Path coverage — `height: auto` pinned because the img's width/height attributes are presentational hints that otherwise make both axes definite and silently cancel the crop (caught in review via a computed-style probe, not by eye); the retired 4:5 portrait, its scrim, and the stat-card band all asserted absent from stylesheet and DOM; each quick fact asserted to render exactly once; desktop and 390px screenshots confirm the rendering
+
+---
+
+## Feature: About bio row beside the company panel
+
+**Paths / functions touched:** `app/globals.css`, `app/about/page.tsx`, `lib/identity-css.test.ts`, `app/public-routes.test.tsx`
+
+- [x] Happy path — the bio runs in the left column with the Coinsub company panel as a right-hand aside, and the career timeline pairs with credentials in one two-column row
+- [x] Validation — N/A: presentational regrouping, no new guard or parsed input
+- [x] Access control — N/A: public About content, no auth
+- [x] Boundary conditions — the two-col row asserted to hold exactly 2 columns, each carrying its full list (4 timeline items, 3 credentials); exactly one `.credentials-list` remains
+- [x] Verification function — `verifyAboutBioColumn` / `verifyAboutBioLayout`
+- [x] DRY setup — the company panel reuses the home brief's `.home-company` rule via a shared selector rather than duplicating padding, border, and background for About
+- [x] Unique error messages — N/A: layout change, no thrown errors
+- [x] Path coverage — the retired single 42rem column asserted absent from the stylesheet; the standalone full-width credentials band asserted gone; desktop and 390px screenshots confirm the row fills and stacks
+
+---
+
+## Feature: Media kit hosts its own pre-selected request form
+
+**Paths / functions touched:** `app/media-kit/page.tsx`, `app/page.tsx`, `app/globals.css`, `lib/identity-css.test.ts`, `app/public-routes.test.tsx`
+
+- [x] Happy path — /media-kit renders the inquiry form beside the still with "Request Media Kit" already selected, instead of a button forwarding to /contact
+- [x] Validation — N/A here: the form's own guards (`parseInquirySubmission`, `assertMediaKitInquiryLabel`) are unchanged and already covered in `lib/contact.test.ts`
+- [x] Access control — N/A: public request form, no auth
+- [x] Boundary conditions — exactly one `form.inquiry-form` on the page; /contact asserted to keep the `interview` default so the two entry points cannot drift
+- [x] Verification function — `verifyMediaKitRequest` / `verifyContactPage`
+- [x] DRY setup — reuses the existing `InquiryForm` `defaultType` prop and `MEDIA_KIT_INQUIRY_TYPE`; no second form component, no query-param plumbing, both routes stay statically rendered
+- [x] Unique error messages — N/A: no new guard introduced
+- [x] Path coverage — the forwarding link to `/contact#inquiry-form` asserted absent; selected option asserted to read `MEDIA_KIT_INQUIRY_LABEL`; pre-selection confirmed in a real browser (`#inquiryType.value === "mediaKit"`), not only in jsdom
+
+---
+
+## Feature: Media kit drops the hero still for a single centred column
+
+**Paths / functions touched:** `lib/copy.ts`, `lib/copy.test.ts`, `app/media-kit/page.tsx`, `app/page.tsx`, `app/globals.css`, `lib/identity-css.test.ts`, `app/public-routes.test.tsx`
+
+- [x] Happy path — /media-kit renders a centred head over a centred form, with the media-kit promise as its lede and no image on the page
+- [x] Validation — `assertMediaKitPromise` rejects empty, the exact retired no-request-email line, any rewording that still contains that claim, and any other copy
+- [x] Access control — N/A: public request page, no auth
+- [x] Boundary conditions — N/A: single published string, not a bounded list
+- [x] Verification function — `verifyMediaKitRequest`
+- [x] DRY setup — the promise is one guarded constant shared by the home media-kit section and the /media-kit lede, replacing the inline sentence that existed on home
+- [x] Unique error messages — promise required vs no-request-email promise is not published vs cannot claim no request is required vs must be the sent-on-request line
+- [x] Path coverage — the page asserted to contain no `img` at all, and `.media-kit-request__photo` / `__figure` asserted gone from both DOM and stylesheet; the retired promise asserted absent from the rendered page; the NYSE still now appears once as the About hero, with the home page keeping only the video embed of that interview
+
+---
+
+## Feature: Media kit request moves into a dialog on a one-screen page
+
+**Paths / functions touched:** `lib/contact.ts`, `lib/contact.test.ts`, `components/contact/inquiry-form.tsx`, `components/contact/inquiry-form.test.tsx`, `components/media-kit/request-dialog.tsx`, `app/media-kit/page.tsx`, `app/globals.css`, `lib/identity-css.test.ts`, `app/public-routes.test.tsx`
+
+- [x] Happy path — the ask fills the first screen (eyebrow, title, lede, button, response note, press email) and the button opens a native `<dialog>` carrying the form, narrowed to Request Media Kit with no scheduling block
+- [x] Validation — `parseInquiryTypeOptions` rejects an empty option list, duplicated types, and a default that is not among the offered types
+- [x] Access control — N/A: public request page, no auth
+- [x] Boundary conditions — option lists of 0 (rejected), 1 (the media-kit case), and the full published list all covered
+- [x] Verification function — `verifyMediaKitRequest` / `verifyInquiryTypes` / `verifyCalendlyBooking`
+- [x] DRY setup — one `InquiryForm` serves both pages through `types` and `showScheduling` props; no second form component, and `/contact` keeps every type plus Calendly
+- [x] Unique error messages — needs at least one inquiry type vs types must each be unique vs `${defaultType}` is not among the offered inquiry types
+- [x] Path coverage — Calendly asserted absent from the media-kit form and still present on `/contact`; the select asserted to hold exactly one option; the dialog asserted closed on load; the retired `.media-kit-request` layout asserted gone from DOM and stylesheet; opened in a real browser to confirm `showModal()` works, focus moves inside, Esc closes, and the hero fills the viewport (hero bottom 898px of 900px) — none of which jsdom can exercise
+
+---
+
+## Feature: Boxed form fields and a framed request dialog
+
+**Paths / functions touched:** `components/contact/inquiry-form.tsx`, `components/contact/inquiry-form.test.tsx`, `components/media-kit/request-dialog.tsx`, `app/globals.css`, `app/public-routes.test.tsx`
+
+- [x] Happy path — the dialog carries a bordered head with an × close, boxed inputs, and a full-bleed footer with Cancel beside Send Request; the type picker is gone and its value rides along hidden
+- [x] Validation — a hidden single type still parses and routes: the mailto subject is asserted to read "Request Media Kit — NASDAQ" with no picker rendered
+- [x] Access control — N/A: public request form, no auth
+- [x] Boundary conditions — the picker appears only above one offered type: absent at 1 (media kit), present at the full published list (`/contact`)
+- [x] Verification function — `verifyMediaKitRequest` / `verifyInquiryTypes` / `verifyCalendlyBooking`
+- [x] DRY setup — one `InquiryForm` still serves both pages; `onCancel` is optional, and `:only-child` keeps `/contact`'s submit full-width without a second layout
+- [x] Unique error messages — N/A: presentational change plus an inferred picker rule, no new guard
+- [x] Path coverage — dialog contents queried through the DOM rather than by role, since a closed `<dialog>` is hidden from the accessibility tree; confirmed in a real browser that the modal has 0 selects, hidden type `mediaKit`, no Calendly, a working Cancel, and 10px input radius, while `/contact` still reports 6 options, Calendly present, and no Cancel
+
+---
+
+## Feature: Media coverage featured item uses the home split header
+
+**Paths / functions touched:** `app/press/media-coverage/page.tsx`, `app/public-routes.test.tsx`
+
+- [x] Happy path — the featured interview renders the `.featured-interview` split header (title and outlet wordmark left, standfirst and action right) over a full-width player, matching the home page
+- [x] Validation — the wordmark goes through `assertOutletMarkFor`, so an uncleared outlet throws rather than rendering; the action label goes through `assertWatchInterviewCta`
+- [x] Access control — N/A: public press page, no auth
+- [x] Boundary conditions — the logo treatment is scoped to the featured item only, since `assertOutletMarkFor` has no mark for "DecentraLounge / GlobalStake Podcast"; the remaining items keep their outlet as text
+- [x] Verification function — the coverage assertions in `renders media coverage including the NASDAQ interview`
+- [x] DRY setup — reuses the existing `.featured-interview` CSS untouched and the already-guarded `WATCH_INTERVIEW_CTA`; no new styles were added
+- [x] Unique error messages — N/A: reuses existing guards and their errors
+- [x] Path coverage — the retired bordered `article.card` and the "Watch on YouTube" label asserted absent; title, alt, logo src, caption, embed src and watch href all asserted against `mediaCoverage[0]`; every remaining item asserted to still show its outlet and title
+
+---
+
+## Feature: Coverage cards get thumbnails, and the Circle link points at the episode
+
+**Paths / functions touched:** `lib/copy.ts`, `app/press/media-coverage/page.tsx`, `app/public-routes.test.tsx`
+
+- [x] Happy path — the three non-featured items render the press-release card (thumbnail, outlet, title, caption, full-width button) and the Circle entry links to its Builder Series episode
+- [x] Validation — every thumbnail goes through `assertPressThumbnail`, which rejects empty, placeholder, and non-`/press/` sources
+- [x] Access control — N/A: public press page, no auth
+- [x] Boundary conditions — `image` is optional on `CoverageItem`; the featured item has none and runs its player instead, and the card renders its media block only when an image exists
+- [x] Verification function — the coverage assertions in `renders media coverage including the NASDAQ interview`
+- [x] DRY setup — reuses the press page's `card--thumb` markup, `PRESS_THUMB_WIDTH`/`HEIGHT`, and `assertPressThumbnail`; no new CSS
+- [x] Unique error messages — N/A: reuses the existing thumbnail guard and its errors
+- [x] Path coverage — every card's thumbnail src/width/height, action label and href asserted against `mediaCoverage`; the retired `https://www.circle.com` asserted absent and no card allowed to link to a bare `/` path; all three destinations confirmed HTTP 200, and the Circle video verified by title as the Coinsub/Jasper Fu Builder Series episode before the link was changed
+
+---
+
+## Feature: Press alerts signup becomes a panel with an inline field
+
+**Paths / functions touched:** `components/press/press-alert-form.tsx`, `app/press/page.tsx`, `app/globals.css`, `app/public-routes.test.tsx`
+
+- [x] Happy path — the ask and the signup render as one bordered panel, with the email field and Notify me button sharing a line
+- [x] Validation — unchanged: `parsePressAlertEmail` still rejects an empty and a malformed address, and the input now carries `aria-invalid` when it does
+- [x] Access control — N/A: public signup, no auth
+- [x] Boundary conditions — the panel and the form both collapse to one column below 900px, so the field never sits beside the button when there is no room
+- [x] Verification function — `pairs the alerts ask with an inline signup rather than a page-wide field`
+- [x] DRY setup — reuses the shared boxed-input styling and `.button-link`; `.alert-form__field` joins the existing stacked-field rule rather than redefining it
+- [x] Unique error messages — N/A: no new guard, the parser's errors are unchanged
+- [x] Path coverage — panel, eyebrow, wrapped field, label/input association and submit button all asserted; the button asserted to sit outside the field wrapper; measured in a real browser that the input is 403px inside a 1280px panel rather than spanning it, and that field and button share a baseline
+
+---
+
+## Feature: Speaking topics bulleted instead of numbered
+
+**Paths / functions touched:** `app/speaking/page.tsx`, `app/globals.css`, `app/public-routes.test.tsx`
+
+- [x] Happy path — all five topics render with a ringed dot marker, and the list is a `<ul>`
+- [x] Validation — N/A: presentational change, no guard or parsed input
+- [x] Access control — N/A: public speaking page, no auth
+- [x] Boundary conditions — the dot count is asserted equal to `speakingTopics.length`, so a sixth topic cannot render without its marker
+- [x] Verification function — `verifySpeakingTopics`
+- [x] DRY setup — reuses the ringed-dot look of the About career timeline rather than inventing a second marker style
+- [x] Unique error messages — N/A: no new guard
+- [x] Path coverage — the `<ol>` asserted gone, each `01`–`05` counter asserted absent from the page, and the marker column narrowed from 3rem to the dot's own width; verified in a browser that the list is a UL with 5 round 12px dots and no counters in its text
+
+---
+
+## Feature: Booking form boxed fields and a real date range
+
+**Paths / functions touched:** `lib/speaking.ts`, `lib/speaking.test.ts`, `components/speaking/book-jasper-form.tsx`, `app/globals.css`
+
+- [x] Happy path — the booking form uses the site's boxed fields, and Date(s) is now Start date / End date as native pickers whose values reach the mailto JSON as `start_date` / `end_date`
+- [x] Validation — a malformed date, an impossible calendar date, an end before its start, and an end with no start each throw their own error, mapped to the field that caused them
+- [x] Access control — N/A: public booking form, no auth
+- [x] Boundary conditions — equal dates accepted as a single-day booking; a start with no end accepted; both blank accepted; end-before-start by one day rejected
+- [x] Verification function — `verifySpeakingBooking` / `verifySpeakingFailure`
+- [x] DRY setup — `makeSpeakingDraft`; the boxed input rules mirror the inquiry and alert forms
+- [x] Unique error messages — start vs end "must be a valid date"; "Start date is required with an end date"; "End date cannot be before the start date"
+- [x] Path coverage — `isSpeakingDate` round-trips through `Date`, so 2026-13-01, 2026-02-30 and 2026-11-31 are all rejected where the pattern alone accepted them (caught by a test before shipping); the retired free-text `#speaking-date` asserted gone in the browser, and the end picker's `min` confirmed to track the chosen start
+
+---
+
+## Feature: About closing CTA band
+
+**Paths / functions touched:** `app/globals.css`, `app/about/page.tsx`, `app/public-routes.test.tsx`
+
+- [x] Happy path — Book to Speak (`/speaking`) and View All Media Coverage (`/press/media-coverage`) render as the page's final section
+- [x] Validation — existing `assertBookToSpeakCta`/`assertViewAllCoverageCta` retired/unpublished-label errors still apply unchanged
+- [x] Access control — N/A: public About CTA, no auth
+- [x] Boundary conditions — N/A: exactly two fixed CTAs, not a bounded list
+- [x] Verification function — `verifyAboutClosingCta`
+- [x] DRY setup — reuses `BOOK_TO_SPEAK_CTA`/`VIEW_ALL_COVERAGE_CTA` constants already guarded and used elsewhere on the site
+- [x] Unique error messages — N/A: guard functions and their distinct errors are already covered in `lib/copy.test.ts`
+- [x] Path coverage — About previously had zero outbound links; both hrefs now verified

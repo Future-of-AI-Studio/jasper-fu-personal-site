@@ -35,7 +35,29 @@ function verifySiteShell() {
   expect(
     screen.getByRole("link", { name: "Terms of Service" }).getAttribute("href"),
   ).toBe("/terms");
-  expect(document.querySelector("canvas.network-field")).toBeTruthy();
+  expect(document.querySelector("canvas.network-field")).toBeNull();
+
+  const footerNav = screen.getByRole("navigation", { name: "Legal" });
+  const contact = document.querySelector(".site-footer__contact");
+  expect(contact).toBeTruthy();
+  expect(
+    screen.getByRole("heading", { level: 2, name: "Get in touch" }),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(
+      "Working on a story about stablecoin infrastructure, programmable money, or payments orchestration?",
+    ),
+  ).toBeTruthy();
+  const footerContactLink = within(contact as HTMLElement).getByRole("link", {
+    name: "Contact",
+  });
+  expect(footerContactLink.getAttribute("href")).toBe("/contact");
+  // The contact block trails the legal nav in the footer grid, which places
+  // it in the rightmost column on desktop rather than beside the brand mark.
+  expect(
+    footerNav.compareDocumentPosition(contact as Node) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
 }
 
 describe("SiteShell", () => {

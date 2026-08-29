@@ -1,8 +1,17 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { ABOUT_PULL_QUOTE, aboutBioParagraphs, bios, interimBlogPosts, PUBLISHED_CALENDLY_PROMPT, PUBLISHED_RESPONSE_TIME_NOTE, PUBLISHED_SPEAKING_BOOKING_TITLE, PUBLISHED_SPEAKING_INTRO, SEND_REQUEST_CTA, TEAM_CONFIRMATION_COPY, speakingTopics } from "../lib/copy";
-import { identity } from "../lib/identity";
+import { ABOUT_FAQ_PUBLISHED_COUNT, ABOUT_PULL_QUOTE, aboutBioParagraphs, aboutFaqs, bios, BOOK_TO_SPEAK_CTA, careerTimeline, companyBoilerplate, credentials, interimBlogPosts, PUBLISHED_CALENDLY_PROMPT, PUBLISHED_RESPONSE_TIME_NOTE, PUBLISHED_SPEAKING_BOOKING_TITLE, PUBLISHED_SPEAKING_INTRO, mediaCoverage, pullQuotes, quickFacts, SEND_REQUEST_CTA, TEAM_CONFIRMATION_COPY, speakingTopics, VIEW_ALL_COVERAGE_CTA, WATCH_INTERVIEW_CTA } from "../lib/copy";
+import {
+  assertOutletMarkFor,
+  identity,
+  PUBLISHED_ONE_LINER,
+} from "../lib/identity";
+import {
+  MEDIA_KIT_INQUIRY_LABEL,
+  MEDIA_KIT_INQUIRY_TYPE,
+} from "../lib/contact";
+import { MEDIA_KIT_PROMISE, RETIRED_MEDIA_KIT_PROMISE } from "../lib/copy";
 import { MEDIA_KIT_SPEAKING_PHOTO } from "../lib/media-kit";
 import { RETIRED_LEGAL_DRAFT_NOTICE } from "../lib/legal/published";
 import {
@@ -60,13 +69,25 @@ function verifySpeakingPage() {
 }
 
 function verifySpeakingTopics() {
-  expect(document.querySelector(".topic-grid")).toBeTruthy();
+  const list = document.querySelector(".topic-grid");
+  expect(list).toBeTruthy();
   expect(document.querySelectorAll(".topic-grid li")).toHaveLength(
     speakingTopics.length,
   );
   expect(speakingTopics.length).toBe(5);
   for (const topic of speakingTopics) {
     expect(screen.getByRole("heading", { name: topic.title })).toBeTruthy();
+  }
+
+  // Bulleted, not numbered: the topics have no running order, so the list is
+  // unordered and each row is marked with a dot rather than a counter.
+  expect(list?.tagName).toBe("UL");
+  expect(document.querySelector("ol.topic-grid")).toBeNull();
+  expect(document.querySelectorAll(".topic-grid .index-list__dot")).toHaveLength(
+    speakingTopics.length,
+  );
+  for (const counter of ["01", "02", "03", "04", "05"]) {
+    expect(screen.queryByText(counter)).toBeNull();
   }
 }
 
@@ -100,6 +121,11 @@ function verifyContactPage() {
   expect(layout?.querySelector(".contact-copy")).toBeTruthy();
   expect(layout?.querySelector(".contact-routing")).toBeTruthy();
   expect(layout?.querySelector("#inquiry-form")).toBeTruthy();
+  // /contact is the general entry point, so it keeps the interview default;
+  // only the media-kit page pre-selects its own type.
+  expect((screen.getByLabelText("Inquiry type") as HTMLSelectElement).value).toBe(
+    "interview",
+  );
   expect(screen.getByRole("heading", { level: 1, name: "Press inquiries" })).toBeTruthy();
   expect(screen.getByText(/press@coinsub.io/)).toBeTruthy();
   expect(screen.getByText(/speaking@jasperfu.com/)).toBeTruthy();
@@ -119,23 +145,57 @@ function verifyContactPage() {
 }
 
 function verifyMediaKitRequest() {
+  expect(screen.getByRole("heading", { level: 1, name: "Media Kit" })).toBeTruthy();
+  expect(screen.getByText(MEDIA_KIT_PROMISE)).toBeTruthy();
+  // No hero still here: the same NYSE frame already leads About and is
+  // embedded on the home page, and it earned nothing beside the form.
+  expect(screen.queryByRole("img")).toBeNull();
+  expect(document.querySelector(".media-kit-request")).toBeNull();
+  // The ask sits on one screen: a button that opens the form, then what to
+  // expect. The page no longer forwards to /contact, and no longer opens on
+  // a long form.
   expect(
-    screen.getByRole("heading", { name: "Media Kit available on request" }),
+    screen.getByRole("button", { name: "Request Full Media Kit" }),
   ).toBeTruthy();
   expect(
-    screen
-      .getByRole("img", {
-        name: "Jasper Fu speaking during a NASDAQ interview at the New York Stock Exchange",
-      })
-      .getAttribute("src"),
-  ).toBe(MEDIA_KIT_SPEAKING_PHOTO);
+    screen.queryByRole("link", { name: "Request Full Media Kit" }),
+  ).toBeNull();
+  // Once under the button for a reader who never opens the form, and once
+  // inside it at the point of submitting — never both on screen at once.
+  expect(document.querySelector(".media-kit-hero__note")?.textContent).toBe(
+    PUBLISHED_RESPONSE_TIME_NOTE,
+  );
   expect(
-    screen
-      .getByRole("link", { name: "Request Full Media Kit" })
-      .getAttribute("href"),
-  ).toBe("/contact#inquiry-form");
-  expect(document.querySelector(".media-kit-request")).toBeTruthy();
-  expect(document.querySelectorAll(".media-kit-request__photo")).toHaveLength(1);
+    screen.getByRole("link", { name: identity.pressEmail }).getAttribute("href"),
+  ).toBe(`mailto:${identity.pressEmail}`);
+
+  // The form is carried in a native dialog, pre-selected and narrowed to the
+  // one request this page is for, with no scheduling block.
+  const dialog = document.querySelector("dialog.request-dialog");
+  expect(dialog).toBeTruthy();
+  expect(dialog?.hasAttribute("open")).toBe(false);
+  const form = dialog?.querySelector("form.inquiry-form");
+  expect(form).toBeTruthy();
+  expect(document.querySelectorAll("form.inquiry-form")).toHaveLength(1);
+  // One offered type is not a choice, so no picker is shown at all — the
+  // value still travels with the submission as a hidden field.
+  expect(form?.querySelector("select")).toBeNull();
+  expect(screen.queryByLabelText("Inquiry type")).toBeNull();
+  const hidden = form?.querySelector<HTMLInputElement>(
+    'input[type="hidden"][name="inquiryType"]',
+  );
+  expect(hidden?.value).toBe(MEDIA_KIT_INQUIRY_TYPE);
+  expect(document.querySelector("[data-calendly-block]")).toBeNull();
+  expect(screen.queryByRole("link", { name: "Open Calendly" })).toBeNull();
+  // Cancel sits beside submit in the dialog footer. Queried through the DOM
+  // rather than by role: the dialog is closed, so its contents are hidden
+  // from the accessibility tree.
+  const actions = form?.querySelector(".inquiry-form__actions");
+  expect(actions?.querySelector(".button-link--ghost")?.textContent).toBe("Cancel");
+  expect(actions?.querySelector('button[type="submit"]')).toBeTruthy();
+
+  expect(screen.queryByText(RETIRED_MEDIA_KIT_PROMISE)).toBeNull();
+  expect(document.querySelector(".media-kit-hero")).toBeTruthy();
   expect(screen.queryByText("Circular seal")).toBeNull();
   expect(screen.queryByText("Asset pending")).toBeNull();
   expect(screen.queryByText("Copy to Clipboard")).toBeNull();
@@ -147,26 +207,33 @@ function renderAbout() {
   return render(<AboutPage />);
 }
 
-function verifyAboutPortrait(container: HTMLElement) {
-  const figure = container.querySelector("figure.about-portrait");
+function verifyAboutShowcase(container: HTMLElement) {
+  const figure = container.querySelector("figure.showcase__frame");
   expect(figure).toBeTruthy();
-  expect(figure?.getAttribute("aria-label")).toBe(identity.name);
 
-  const image = figure?.querySelector("img.about-portrait__image");
-  expect(image).toBeTruthy();
-  expect(image?.getAttribute("src")).toBe(
-    "/portraits/jasper-fu-placeholder.jpg",
-  );
-  expect(image?.getAttribute("alt")).toBe(identity.name);
+  const image = figure?.querySelector("img.showcase__image");
+  expect(image?.getAttribute("src")).toBe(MEDIA_KIT_SPEAKING_PHOTO);
+  expect(image?.getAttribute("alt")).toContain(identity.name);
+  expect(image?.getAttribute("alt")).toContain("New York Stock Exchange");
 
-  const overlay = figure?.querySelector(".about-portrait__overlay");
-  expect(overlay?.textContent).toContain(identity.name);
-  expect(overlay?.textContent).toContain("blockchain like plumbing");
-  expect(overlay?.textContent).not.toMatch(/Placeholder photography/i);
-  expect(overlay?.querySelector(".about-portrait__label")).toBeNull();
-  expect(overlay?.querySelector(".about-portrait__thesis")?.textContent).toBe(
-    identity.thesis,
-  );
+  // Name and role ride the foot of the still; the numbers sit beside them.
+  expect(figure?.querySelector(".showcase__name")?.textContent).toBe(identity.name);
+  expect(figure?.querySelector(".showcase__role")?.textContent).toBe(identity.title);
+
+  const stats = [...(figure?.querySelectorAll(".showcase__stat") ?? [])];
+  expect(stats).toHaveLength(quickFacts.length);
+  stats.forEach((stat, index) => {
+    const fact = quickFacts[index]!;
+    expect(stat.querySelector(".showcase__stat-value")?.textContent).toBe(fact.value);
+    expect(stat.querySelector(".showcase__stat-label")?.textContent).toBe(fact.label);
+  });
+
+  // The 4:5 studio portrait and the standalone Quick facts band retired with
+  // this card — the numbers live on the still now, in one place only.
+  expect(container.querySelector(".about-portrait")).toBeNull();
+  expect(container.querySelector(".fact-grid")).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Quick facts" })).toBeNull();
+  expect(container.textContent).not.toMatch(/Placeholder photography/i);
 }
 
 function verifyAboutBioLayout(container: HTMLElement) {
@@ -176,14 +243,25 @@ function verifyAboutBioLayout(container: HTMLElement) {
     .map((node) => node.textContent?.trim() ?? "")
     .join(" ");
   expect(body).toBe(bios.words150);
-  expect(prose?.closest(".about-bio")).toBeTruthy();
-  expect(prose?.closest(".band")).toBeNull();
-  expect(container.querySelectorAll(".bio-full")).toHaveLength(1);
-  expect(prose?.closest(".about-bio")?.querySelector("figure.about-portrait")).toBeTruthy();
-  expect(prose?.closest("figure.about-portrait")).toBeNull();
-  expect(container.querySelector("figure.about-portrait")?.contains(prose)).toBe(
-    false,
+  // The bio is its own labelled band under the hero still, running beside
+  // the company panel rather than alone in a narrow column.
+  const section = prose?.closest(".about-bio");
+  expect(section).toBeTruthy();
+  expect(section?.classList.contains("band")).toBe(true);
+  expect(section?.querySelector(".about-bio__main .eyebrow")?.textContent).toBe(
+    "Biography",
   );
+  const company = section?.querySelector("aside.about-company");
+  expect(company).toBeTruthy();
+  expect(company?.querySelector(".eyebrow")?.textContent).toBe(
+    "Current Endeavour",
+  );
+  expect(company?.querySelector(".about-company__copy")?.textContent).toBe(
+    companyBoilerplate,
+  );
+  expect(container.querySelectorAll(".bio-full")).toHaveLength(1);
+  expect(section?.querySelector("figure")).toBeNull();
+  expect(prose?.closest("figure")).toBeNull();
   expect(prose?.querySelectorAll(":scope > p")).toHaveLength(
     aboutBioParagraphs.length,
   );
@@ -208,7 +286,6 @@ function verifyAboutClosingQuote(container: HTMLElement) {
 function verifyAboutAbsences() {
   expect(screen.queryByText("Approved lengths")).toBeNull();
   expect(screen.queryByText(/Placeholder photography/i)).toBeNull();
-  expect(screen.queryByText("Who is David Akers?")).toBeNull();
   expect(screen.queryByText("For desks and producers")).toBeNull();
   expect(screen.queryByText(new RegExp(aboutFiftyWordOnlySnippet))).toBeNull();
   expect(screen.queryByText("Co-founder")).toBeNull();
@@ -232,14 +309,62 @@ function verifyAboutPageHead(container: HTMLElement) {
   ).toBeNull();
 }
 
+/**
+ * The stat-card band is retired: its numbers moved onto the hero still, so
+ * each figure is published in exactly one place. The longer `detail` line
+ * has no home on a chip and must not survive anywhere on the page.
+ */
+function verifyRetiredQuickFactsBand(container: HTMLElement) {
+  expect(container.querySelector(".fact-grid")).toBeNull();
+  expect(container.querySelectorAll(".stat-card")).toHaveLength(0);
+  for (const fact of quickFacts) {
+    expect(screen.getAllByText(fact.value)).toHaveLength(1);
+    expect(screen.getAllByText(fact.label)).toHaveLength(1);
+    expect(screen.queryByText(fact.detail)).toBeNull();
+  }
+}
+
+function verifyAboutPullQuotesSection(container: HTMLElement) {
+  const cards = container.querySelectorAll(".quote-card");
+  expect(cards).toHaveLength(pullQuotes.length);
+  for (const line of pullQuotes) {
+    expect(screen.getByText(`“${line}”`)).toBeTruthy();
+  }
+  expect(container.querySelectorAll(".quote-card cite")).toHaveLength(0);
+}
+
+function verifyAboutFaqSection(container: HTMLElement) {
+  const items = container.querySelectorAll(".faq-item");
+  expect(items).toHaveLength(ABOUT_FAQ_PUBLISHED_COUNT);
+  for (const faq of aboutFaqs.slice(0, ABOUT_FAQ_PUBLISHED_COUNT)) {
+    expect(screen.getByText(faq.question)).toBeTruthy();
+    expect(screen.getByText(faq.answer)).toBeTruthy();
+  }
+  expect(screen.queryByText("What does programmable money mean?")).toBeNull();
+  expect(screen.queryByText(/Definition pending/)).toBeNull();
+}
+
+function verifyAboutClosingCta() {
+  expect(
+    screen.getByRole("link", { name: BOOK_TO_SPEAK_CTA }).getAttribute("href"),
+  ).toBe("/speaking");
+  expect(
+    screen.getByRole("link", { name: VIEW_ALL_COVERAGE_CTA }).getAttribute("href"),
+  ).toBe("/press/media-coverage");
+}
+
 function verifyAboutPage(container: HTMLElement) {
   verifyAboutBioLayout(container);
   expect(container.querySelector(".about-bio__prose")?.textContent).toContain(
     aboutWords150UniqueSnippet,
   );
   verifyAboutPageHead(container);
-  verifyAboutPortrait(container);
+  verifyAboutShowcase(container);
   verifyAboutClosingQuote(container);
+  verifyRetiredQuickFactsBand(container);
+  verifyAboutPullQuotesSection(container);
+  verifyAboutFaqSection(container);
+  verifyAboutClosingCta();
   expect(screen.getByText("Current Endeavour")).toBeTruthy();
   expect(screen.getByText("Current Endeavour").querySelector("img")).toBeNull();
   expect(
@@ -260,52 +385,85 @@ describe("public routes", () => {
     verifyAboutPage(container);
   });
 
-  it("places the 150-word bio beside a framed portrait for the same vertical span", () => {
+  it("pairs the career timeline with credentials instead of leaving half-rows empty", () => {
+    const { container } = renderAbout();
+    const row = container.querySelector(".band.two-col");
+    expect(row).toBeTruthy();
+    const columns = [...(row?.children ?? [])];
+    expect(columns).toHaveLength(2);
+    expect(columns[0]?.querySelector(".eyebrow")?.textContent).toBe("Journey");
+    expect(columns[1]?.querySelector(".eyebrow")?.textContent).toBe("Credentials");
+    expect(columns[0]?.querySelectorAll(".career-timeline__item")).toHaveLength(
+      careerTimeline.length,
+    );
+    expect(columns[1]?.querySelectorAll(".career-timeline__item")).toHaveLength(
+      credentials.length,
+    );
+    // Credentials no longer trails the page as its own full-width band.
+    expect(container.querySelectorAll("ul.credentials-list")).toHaveLength(1);
+  });
+
+  it("publishes each quick fact once, on the hero still rather than a stat band", () => {
+    const { container } = renderAbout();
+    verifyAboutShowcase(container);
+    verifyRetiredQuickFactsBand(container);
+  });
+
+  it("answers the first 3 FAQs and excludes the unfinished 4th", () => {
+    const { container } = renderAbout();
+    verifyAboutFaqSection(container);
+  });
+
+  it("closes with Book to Speak and View All Media Coverage CTAs", () => {
+    renderAbout();
+    verifyAboutClosingCta();
+  });
+
+  it("sets the 150-word bio in one measured column under the hero still", () => {
     const { container } = renderAbout();
     verifyAboutBioLayout(container);
-    verifyAboutPortrait(container);
+    verifyAboutShowcase(container);
     const words = bios.words150.trim().split(/\s+/);
     expect(words.length).toBeGreaterThan(1);
     expect(words.length).toBeGreaterThanOrEqual(100);
     expect(words.length).toBeLessThan(200);
-    expect(container.querySelectorAll("figure.about-portrait")).toHaveLength(1);
+    expect(container.querySelectorAll("figure.showcase__frame")).toHaveLength(1);
   });
 
-  it("omits 250-word-only copy, approved lengths, FAQ, and the co-founder pair", () => {
+  it("omits 250-word-only copy, approved lengths, and the standalone co-founder card", () => {
     renderAbout();
     expect(screen.queryByText("Approved lengths")).toBeNull();
     expect(screen.queryByText("50 words")).toBeNull();
     expect(screen.queryByText("150 words")).toBeNull();
     expect(screen.queryByText(new RegExp(aboutFiftyWordOnlySnippet))).toBeNull();
-    expect(screen.queryByText("Who is David Akers?")).toBeNull();
     expect(screen.queryByText("For desks and producers")).toBeNull();
-    expect(screen.queryByText(/collaborative co-founder effort/)).toBeNull();
     expect(screen.queryByRole("heading", { name: "David Akers" })).toBeNull();
     for (const snippet of aboutWords250OnlySnippets) {
       expect(screen.queryByText(new RegExp(snippet))).toBeNull();
     }
   });
 
-  it("keeps the Version B thesis on the portrait overlay, not in the page-head lede", () => {
+  it("leaves the thesis to the home hero rather than repeating it on About", () => {
     const { container } = renderAbout();
-    verifyAboutPortrait(container);
-    const lede = container.querySelector(".page-head__lede");
-    expect(lede).toBeNull();
-    const overlayTheses = container.querySelectorAll(".about-portrait__thesis");
-    expect(overlayTheses).toHaveLength(1);
-    expect(overlayTheses[0]?.textContent).toContain("blockchain like plumbing");
-    expect(overlayTheses[0]?.textContent).not.toContain(
-      "Trust shouldn't be a promise",
-    );
+    verifyAboutShowcase(container);
+    expect(container.querySelector(".page-head__lede")).toBeNull();
+    expect(container.querySelectorAll(".about-portrait__thesis")).toHaveLength(0);
+    expect(container.textContent).not.toContain(identity.thesis);
+    expect(container.textContent).not.toContain("Trust shouldn't be a promise");
   });
 
-  it("shows a label-only About header and keeps Jasper Fu on the portrait", () => {
+  it("leads with the locked one-liner over the quote as its deck", () => {
     const { container } = renderAbout();
     verifyAboutPageHead(container);
-    verifyAboutPortrait(container);
+    const headline = container.querySelector(".about-headline");
+    expect(headline?.textContent).toBe(PUBLISHED_ONE_LINER);
+    // The one-liner reads before the quote, not after it.
+    const deck = container.querySelector(".page-head--label .about-bio__quote");
+    expect(deck).toBeTruthy();
     expect(
-      container.querySelector(".about-portrait__name")?.textContent,
-    ).toBe(identity.name);
+      headline!.compareDocumentPosition(deck as Node) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("places the cash-to-digital quote under the About label on the left", () => {
@@ -314,10 +472,9 @@ describe("public routes", () => {
     verifyAboutBioLayout(container);
   });
 
-  it("omits the unused pull-quote list from About", () => {
-    renderAbout();
-    expect(screen.queryByText("Ready pull-quotes")).toBeNull();
-    expect(screen.queryByText(/I used to break payment systems for a living/)).toBeNull();
+  it("surfaces the pull-quote list on About", () => {
+    const { container } = renderAbout();
+    verifyAboutPullQuotesSection(container);
   });
 
   it("renders the interim press releases page", () => {
@@ -325,10 +482,84 @@ describe("public routes", () => {
     verifyPressReleaseThumbs();
   });
 
+  it("pairs the alerts ask with an inline signup rather than a page-wide field", () => {
+    const { container } = render(<PressPage />);
+    const panel = container.querySelector(".alert-panel");
+    expect(panel).toBeTruthy();
+    // The ask and the form are one block, not a heading with a stray field.
+    expect(panel?.querySelector(".section-intro .eyebrow")?.textContent).toBe(
+      "Alerts",
+    );
+    const form = panel?.querySelector("form.alert-form");
+    expect(form).toBeTruthy();
+    // The field is wrapped so the label stacks over the input while the
+    // button stays on the same line as the field.
+    const field = form?.querySelector(".alert-form__field");
+    expect(field?.querySelector("label")?.getAttribute("for")).toBe("alert-email");
+    expect(field?.querySelector("input")?.getAttribute("type")).toBe("email");
+    expect(form?.querySelector('button[type="submit"]')?.textContent).toBe(
+      "Notify me",
+    );
+    expect(field?.querySelector("button")).toBeNull();
+    expect(screen.getByLabelText("Email")).toBeTruthy();
+  });
+
   it("renders media coverage including the NASDAQ interview", () => {
-    render(<CoveragePage />);
-    expect(screen.getByText("NASDAQ")).toBeTruthy();
+    const { container } = render(<CoveragePage />);
+    const featured = mediaCoverage[0]!;
+    const outlet = assertOutletMarkFor(featured.outlet);
+
+    // The featured item now uses the home page's split-header treatment:
+    // headline and outlet mark left, standfirst and action right, over a
+    // full-width player — not a bordered card.
+    const section = container.querySelector("section.featured-interview");
+    expect(section).toBeTruthy();
+    expect(
+      section?.querySelector(".featured-interview__title")?.textContent,
+    ).toBe(featured.title);
+    const mark = section?.querySelector<HTMLImageElement>(
+      "img.featured-interview__outlet",
+    );
+    expect(mark?.getAttribute("alt")).toBe(outlet.name);
+    expect(mark?.getAttribute("src")).toBe(outlet.logo);
+    expect(
+      section?.querySelector(".featured-interview__lede")?.textContent,
+    ).toBe(featured.caption);
+    expect(
+      section?.querySelector<HTMLIFrameElement>("iframe.featured-interview__media")
+        ?.getAttribute("src"),
+    ).toBe(featured.embedUrl);
     expect(screen.getByTitle(/crypto payments, stablecoins/i)).toBeTruthy();
+
+    // The featured action reads the same as it does on the home page.
+    const watch = section?.querySelector<HTMLAnchorElement>("a.button-link");
+    expect(watch?.textContent).toBe(WATCH_INTERVIEW_CTA);
+    expect(watch?.getAttribute("href")).toBe(featured.watchUrl);
+    expect(section?.querySelector("article.card")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Watch on YouTube" })).toBeNull();
+
+    // The remaining items keep their text outlet label, since only cleared
+    // outlets have a wordmark to show, and take the press-release card:
+    // thumbnail, copy, then a full-width button naming the medium.
+    const actions = { video: "Watch", audio: "Listen", article: "Read coverage" };
+    for (const item of mediaCoverage.slice(1)) {
+      expect(screen.getByText(item.outlet)).toBeTruthy();
+      const card = screen.getByText(item.title).closest("article.card--thumb");
+      expect(card).toBeTruthy();
+      const thumb = card?.querySelector<HTMLImageElement>("img.card__thumb");
+      expect(thumb?.getAttribute("src")).toBe(item.image);
+      expect(thumb?.getAttribute("width")).toBe(String(PRESS_THUMB_WIDTH));
+      expect(thumb?.getAttribute("height")).toBe(String(PRESS_THUMB_HEIGHT));
+      const action = card?.querySelector<HTMLAnchorElement>("a.button-link--block");
+      expect(action?.textContent).toBe(actions[item.kind]);
+      expect(action?.getAttribute("href")).toBe(item.watchUrl);
+      // No card is left linking to a bare corporate home page.
+      expect(item.watchUrl).not.toBe("https://www.circle.com");
+      expect(new URL(item.watchUrl).pathname).not.toBe("/");
+    }
+    // The Circle entry points at the Builder Series episode itself.
+    const circle = mediaCoverage.find((item) => item.outlet === "Circle");
+    expect(circle?.watchUrl).toBe("https://www.youtube.com/watch?v=j3MOBy6PUnU");
   });
 
   it("renders speaking topics and a Book Jasper request form", () => {

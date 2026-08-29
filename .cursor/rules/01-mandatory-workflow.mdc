@@ -20,4 +20,4 @@ For every feature/change:
 - Do not tell the user it "should work" — say what you verified and show proof.
 - Do not skip build/test when `package.json` defines those scripts.
 
-Imported detail docs: `MANDATORY_WORKFLOW.md`, `docs/CURSOR_BEST_PRACTICES.md`, `docs/DEVELOPMENT_PRACTICES.md`.
+Imported detail docs: `docs/MANDATORY_WORKFLOW.md`, `docs/CURSOR_BEST_PRACTICES.md`, `docs/DEVELOPMENT_PRACTICES.md`.

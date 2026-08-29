@@ -43,25 +43,23 @@ describe("CoinsubMark", () => {
 });
 
 describe("Wordmark", () => {
-  it("pairs the circular seal with Jasper Fu's name and a linked Coinsub title", () => {
+  it("renders the circular seal alone as the home link", () => {
     const { container } = render(<Wordmark />);
     verifySeal(container);
     expect(container.querySelector(".wordmark")).toBeTruthy();
-    expect(container.querySelector("a.wordmark__home")?.getAttribute("href")).toBe(
-      "/",
-    );
-    expect(screen.getByText(identity.name)).toBeTruthy();
-    expect(
-      screen.getByText((_, node) =>
-        Boolean(
-          node?.classList.contains("wordmark__tag") &&
-            node.textContent === identity.title,
-        ),
-      ),
-    ).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Coinsub" }).getAttribute("href")).toBe(
-      identity.coinsubUrl,
-    );
-    expect(screen.queryByRole("img", { name: "Coinsub" })).toBeNull();
+
+    const home = container.querySelector("a.wordmark__home");
+    expect(home?.getAttribute("href")).toBe("/");
+    expect(home?.getAttribute("aria-label")).toBe(identity.name);
+  });
+
+  it("no longer repeats the name and Coinsub title from the hero", () => {
+    const { container } = render(<Wordmark />);
+    expect(container.querySelector(".wordmark__lockup")).toBeNull();
+    expect(container.querySelector(".wordmark__name")).toBeNull();
+    expect(container.querySelector(".wordmark__tag")).toBeNull();
+    expect(screen.queryByText(identity.name)).toBeNull();
+    expect(screen.queryByText(identity.title)).toBeNull();
+    expect(screen.queryByRole("link", { name: "Coinsub" })).toBeNull();
   });
 });

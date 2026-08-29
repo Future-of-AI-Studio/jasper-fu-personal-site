@@ -7,6 +7,7 @@ import {
   inquiryLabels,
   inquiryTypes,
   parseInquirySubmission,
+  parseInquiryTypeOptions,
 } from "../../lib/contact";
 import {
   SEND_REQUEST_CTA,
@@ -22,9 +23,19 @@ const NAME_REQUIRED = "Name is required";
 
 export function InquiryForm({
   defaultType = "interview",
+  types = inquiryTypes,
+  showScheduling = true,
+  onCancel,
 }: {
   defaultType?: (typeof inquiryTypes)[number];
+  /** Narrowed on pages dedicated to a single kind of request. */
+  types?: readonly (typeof inquiryTypes)[number][];
+  /** Calendly books a conversation, which a media-kit request does not need. */
+  showScheduling?: boolean;
+  /** Adds a Cancel action beside submit — used when the form is in a dialog. */
+  onCancel?: () => void;
 }) {
+  const options = parseInquiryTypeOptions(types, defaultType);
   const [error, setError] = useState("");
   const [mailto, setMailto] = useState("");
 
@@ -78,40 +89,50 @@ export function InquiryForm({
           type="text"
         />
       </div>
-      <div className="inquiry-form__field inquiry-form__field--wide">
+      {/* Email and deadline share a row: with the type picker hidden on a
+          dedicated request, the deadline would otherwise sit alone. */}
+      <div className="inquiry-form__field">
         <label htmlFor="email">Email</label>
         <input autoComplete="email" id="email" name="email" type="email" />
-      </div>
-      <div className="inquiry-form__field">
-        <label htmlFor="inquiryType">Inquiry type</label>
-        <select defaultValue={defaultType} id="inquiryType" name="inquiryType">
-          {inquiryTypes.map((type) => (
-            <option key={type} value={type}>
-              {inquiryLabels[type]}
-            </option>
-          ))}
-        </select>
       </div>
       <div className="inquiry-form__field">
         <label htmlFor="deadline">Deadline (optional)</label>
         <input id="deadline" name="deadline" type="text" />
       </div>
+      {/* A single offered type is not a choice, so it travels as a hidden
+          value rather than a select the reader cannot change. */}
+      {options.length > 1 ? (
+        <div className="inquiry-form__field inquiry-form__field--wide">
+          <label htmlFor="inquiryType">Inquiry type</label>
+          <select defaultValue={defaultType} id="inquiryType" name="inquiryType">
+            {options.map((type) => (
+              <option key={type} value={type}>
+                {inquiryLabels[type]}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <input defaultValue={defaultType} name="inquiryType" type="hidden" />
+      )}
       <div className="inquiry-form__field inquiry-form__field--wide">
         <label htmlFor="notes">Notes</label>
         <textarea id="notes" name="notes" rows={6} />
       </div>
-      <div className="inquiry-form__field inquiry-form__field--wide" data-calendly-block="">
-        <p className="eyebrow">Book a time</p>
-        <p>{assertCalendlyPrompt(calendlyPrompt)}</p>
-        <a
-          className="button-link"
-          href={assertCalendlyUrl(identity.calendlyUrl)}
-          rel="noreferrer"
-          target="_blank"
-        >
-          Open Calendly
-        </a>
-      </div>
+      {showScheduling ? (
+        <div className="inquiry-form__field inquiry-form__field--wide" data-calendly-block="">
+          <p className="eyebrow">Book a time</p>
+          <p>{assertCalendlyPrompt(calendlyPrompt)}</p>
+          <a
+            className="button-link"
+            href={assertCalendlyUrl(identity.calendlyUrl)}
+            rel="noreferrer"
+            target="_blank"
+          >
+            Open Calendly
+          </a>
+        </div>
+      ) : null}
       {mailto ? (
         <p>
           Request prepared.{" "}
@@ -126,9 +147,20 @@ export function InquiryForm({
           {submitError}
         </p>
       ) : null}
-      <button className="button-link" type="submit">
-        {assertSendRequestCta(SEND_REQUEST_CTA)}
-      </button>
+      <div className="inquiry-form__actions">
+        {onCancel ? (
+          <button
+            className="button-link button-link--ghost"
+            onClick={onCancel}
+            type="button"
+          >
+            Cancel
+          </button>
+        ) : null}
+        <button className="button-link" type="submit">
+          {assertSendRequestCta(SEND_REQUEST_CTA)}
+        </button>
+      </div>
     </form>
   );
 }

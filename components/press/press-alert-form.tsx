@@ -26,21 +26,32 @@ export function PressAlertForm() {
 
   return (
     <form className="alert-form" noValidate onSubmit={handleSubmit}>
-      <label htmlFor="alert-email">Email</label>
-      <input id="alert-email" name="email" type="email" />
+      {/* The field and its button share a line — stacked full-width they
+          stretched the whole page and read as a broken layout. */}
+      <div className="alert-form__field">
+        <label htmlFor="alert-email">Email</label>
+        <input
+          aria-invalid={error ? true : undefined}
+          autoComplete="email"
+          id="alert-email"
+          name="email"
+          placeholder="you@outlet.com"
+          type="email"
+        />
+      </div>
+      <button className="button-link" type="submit">
+        Notify me
+      </button>
       {error ? (
         <p className="form-error" role="alert">
           {error}
         </p>
       ) : null}
       {mailto ? (
-        <a className="button-link" href={mailto}>
+        <a className="button-link button-link--ghost" href={mailto}>
           Confirm signup email
         </a>
       ) : null}
-      <button className="button-link" type="submit">
-        Notify me
-      </button>
     </form>
   );
 }

@@ -11,11 +11,11 @@ Imported into this agent from `/Users/kavsol/Documents/Influencer-Compliance/Gra
 - `.cursor/hooks.json` — hard-block commit/push + stop follow-ups
 - `node .compliance/check-ledger.mjs` — pass/fail check
 
-## Start here (project root)
+## Start here
 
-- `START_HERE.md` — entry point / orientation
-- `MANDATORY_WORKFLOW.md` — required development workflow
-- `.cursorrules` — pointer to compliance stack (not the full rulebook)
+- `docs/START_HERE.md` — entry point / orientation
+- `docs/MANDATORY_WORKFLOW.md` — required development workflow
+- `.cursorrules` — pointer to compliance stack (not the full rulebook), at the project root
 
 ## Testing
 

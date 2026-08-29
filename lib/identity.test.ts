@@ -9,6 +9,7 @@ import {
   assertMediaBarLoopCopies,
   assertMediaOutletLogo,
   assertMediaOutletMark,
+  assertOutletMarkFor,
   identity,
   mediaOutlets,
   MEDIA_BAR_LOOP_COPIES,
@@ -17,10 +18,12 @@ import {
   PUBLISHED_CALENDLY_URL,
   PUBLISHED_COINSUB_URL,
   PUBLISHED_LINKEDIN_URL,
+  PUBLISHED_ONE_LINER,
   PUBLISHED_THESIS,
   RETIRED_INFO_BOOKING_EMAIL,
   RETIRED_SPEAKING_BOOKING_EMAIL,
   LEGACY_THESIS,
+  assertLockedOneLiner,
   assertThesis,
   splitTitleForCoinsub,
 } from "./identity";
@@ -83,7 +86,7 @@ describe("mediaOutlets marks", () => {
   it("gives every home media-bar outlet a unique cleared local logo", () => {
     const marks = mediaOutlets.map((outlet) => assertMediaOutletMark(outlet));
     expect(marks).toHaveLength(4);
-    expect(new Set(marks.map((mark) => mark.logo)).size).toBe(4);
+    expect(new Set(marks.map((mark) => mark.logo)).size).toBe(marks.length);
     expect(
       marks.every((mark) => mark.logo.startsWith(MEDIA_OUTLET_LOGO_PREFIX)),
     ).toBe(true);
@@ -91,8 +94,8 @@ describe("mediaOutlets marks", () => {
 });
 
 describe("assertMediaBarLoopCopies", () => {
-  it("accepts two copies for a seamless loop", () => {
-    expect(assertMediaBarLoopCopies(MEDIA_BAR_LOOP_COPIES)).toBe(2);
+  it("accepts five copies for a seamless loop", () => {
+    expect(assertMediaBarLoopCopies(MEDIA_BAR_LOOP_COPIES)).toBe(5);
   });
 
   it("rejects a non-integer copy count", () => {
@@ -107,9 +110,27 @@ describe("assertMediaBarLoopCopies", () => {
     );
   });
 
-  it("rejects more than two copies", () => {
-    expect(() => assertMediaBarLoopCopies(3)).toThrow(
-      "Media bar loop uses exactly two copies",
+  it("rejects the retired two-copy loop that spread the logos apart", () => {
+    expect(() => assertMediaBarLoopCopies(2)).toThrow(
+      "Media bar loop uses exactly 5 copies",
+    );
+  });
+
+  it("rejects one copy below the published count", () => {
+    expect(() =>
+      assertMediaBarLoopCopies(MEDIA_BAR_LOOP_COPIES - 1),
+    ).toThrow("Media bar loop uses exactly 5 copies");
+  });
+
+  it("rejects one copy above the published count", () => {
+    expect(() =>
+      assertMediaBarLoopCopies(MEDIA_BAR_LOOP_COPIES + 1),
+    ).toThrow("Media bar loop uses exactly 5 copies");
+  });
+
+  it("names the current count in the message rather than a stale literal", () => {
+    expect(() => assertMediaBarLoopCopies(99)).toThrow(
+      `Media bar loop uses exactly ${MEDIA_BAR_LOOP_COPIES} copies`,
     );
   });
 });
@@ -233,6 +254,38 @@ describe("assertThesis", () => {
   });
 });
 
+describe("assertLockedOneLiner", () => {
+  it("accepts the published orchestration-layer one-liner", () => {
+    expect(assertLockedOneLiner(` ${identity.lockedOneLiner} `)).toBe(
+      PUBLISHED_ONE_LINER,
+    );
+  });
+
+  it("rejects a missing one-liner", () => {
+    expect(() => assertLockedOneLiner(" ")).toThrow(
+      "Locked one-liner is required",
+    );
+  });
+
+  it("rejects a placeholder one-liner", () => {
+    expect(() => assertLockedOneLiner("placeholder one-liner")).toThrow(
+      "Placeholder one-liner is not published",
+    );
+  });
+
+  it("rejects the retired trust-as-architecture line", () => {
+    expect(() => assertLockedOneLiner(LEGACY_THESIS)).toThrow(
+      "Trust-as-architecture one-liner is not published",
+    );
+  });
+
+  it("rejects any other unpublished one-liner", () => {
+    expect(() => assertLockedOneLiner("A different line.")).toThrow(
+      "Locked one-liner must be the orchestration-layer line",
+    );
+  });
+});
+
 describe("assertBookingEmail", () => {
   it("accepts the published booking inbox", () => {
     verifyBookingEmail(` ${identity.bookingEmail} `);
@@ -257,6 +310,43 @@ describe("assertBookingEmail", () => {
   it("rejects an unpublished booking inbox", () => {
     expect(() => assertBookingEmail("press@coinsub.io")).toThrow(
       "Booking inbox must be speaking@jasperfu.io",
+    );
+  });
+});
+
+describe("assertOutletMarkFor", () => {
+  it("resolves a coverage outlet to its published logo", () => {
+    expect(assertOutletMarkFor("NASDAQ")).toEqual({
+      name: "NASDAQ",
+      logo: "/logos/nasdaq.svg",
+    });
+  });
+
+  it("trims the name through the clearance guard", () => {
+    expect(assertOutletMarkFor("  NYSE  ").name).toBe("NYSE");
+  });
+
+  it("rejects an empty name", () => {
+    expect(() => assertOutletMarkFor("  ")).toThrow("Logo name is required");
+  });
+
+  it("rejects a partner that is not cleared to publish", () => {
+    expect(() => assertOutletMarkFor("FCTI")).toThrow(
+      "FCTI logo is not cleared for publication",
+    );
+  });
+
+  it("rejects a brand with no publication status at all", () => {
+    expect(() => assertOutletMarkFor("Acme")).toThrow(
+      "Acme logo has no publication status",
+    );
+  });
+
+  it("rejects a cleared brand that carries no logo in the strip", () => {
+    // Coinsub is editorially cleared but is not a coverage outlet, so it has
+    // no entry in mediaOutlets to render a mark from.
+    expect(() => assertOutletMarkFor("Coinsub")).toThrow(
+      "Coinsub has no published outlet logo",
     );
   });
 });

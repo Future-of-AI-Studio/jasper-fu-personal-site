@@ -43,6 +43,27 @@ export const inquiryLabels: Record<InquiryType, string> = {
   other: "Other",
 };
 
+/**
+ * Which inquiry types a given form offers. A page dedicated to one kind of
+ * request narrows this to that type alone, so the guard refuses a form with
+ * nothing to pick and one whose default is not among its own options.
+ */
+export function parseInquiryTypeOptions(
+  types: readonly InquiryType[],
+  defaultType: InquiryType,
+) {
+  if (types.length === 0) {
+    throw new Error("Inquiry form needs at least one inquiry type");
+  }
+  if (new Set(types).size !== types.length) {
+    throw new Error("Inquiry types must each be unique");
+  }
+  if (!types.includes(defaultType)) {
+    throw new Error(`${defaultType} is not among the offered inquiry types`);
+  }
+  return [...types];
+}
+
 export const inquiryRoutes: Record<InquiryType, string> = {
   interview: identity.pressEmail,
   comment: identity.pressEmail,

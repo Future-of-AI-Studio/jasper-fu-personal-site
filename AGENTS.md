@@ -18,7 +18,7 @@ Imported from Graffiti Creative Group. You MUST follow the rigid compliance stac
 
 ## Reference docs (imported)
 
-See `docs/IMPORT_INDEX.md`, `START_HERE.md`, `MANDATORY_WORKFLOW.md`, and `docs/`.
+See `docs/IMPORT_INDEX.md`, `docs/START_HERE.md`, `docs/MANDATORY_WORKFLOW.md`, and `docs/`.
 
 ## Widgets (imported)
 

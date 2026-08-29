@@ -22,4 +22,4 @@ Cursor agents MUST follow the rigid compliance stack:
 node .compliance/check-ledger.mjs
 ```
 
-Imported GrowLink prose remains under `docs/`, `START_HERE.md`, and `MANDATORY_WORKFLOW.md` for reference. Enforcement is the compliance stack above — follow it rigidly.
+Imported GrowLink prose remains under `docs/` (including `docs/START_HERE.md` and `docs/MANDATORY_WORKFLOW.md`) for reference. Enforcement is the compliance stack above — follow it rigidly.

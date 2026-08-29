@@ -26,7 +26,14 @@ export const identity = {
 } as const;
 
 export const MEDIA_OUTLET_LOGO_PREFIX = "/logos/";
-export const MEDIA_BAR_LOOP_COPIES = 2;
+/**
+ * On mobile each copy is only as wide as its logos, so several are needed to
+ * cover the viewport without a gap opening at the seam. Two copies only
+ * worked while a copy was stretched to a full 100vw, which forced the logos
+ * far apart. Keep this in step with the marquee keyframe in globals.css: one
+ * copy travels 100 / MEDIA_BAR_LOOP_COPIES percent of the track.
+ */
+export const MEDIA_BAR_LOOP_COPIES = 5;
 
 export const mediaOutlets = [
   { name: "NASDAQ", href: "https://www.nasdaq.com", logo: "/logos/nasdaq.svg" },
@@ -35,6 +42,11 @@ export const mediaOutlets = [
     href: "https://ceofficialmag.com",
     logo: "/logos/ceo-magazine.svg",
   },
+  //   {
+  //   name: "Coinsub",
+  //   href: "https://www.coinsub.io/",
+  //   logo: "/logos/coinsub-logo.svg",
+  // },
   { name: "Circle", href: "https://www.circle.com", logo: "/logos/circle.png" },
   { name: "NYSE", href: "https://www.nyse.com", logo: "/logos/nyse.svg" },
 ] as const;
@@ -97,6 +109,22 @@ export function assertMediaOutletMark(outlet: { name: string; logo: string }) {
   };
 }
 
+/**
+ * Resolves a coverage outlet's name to its published logo. Refuses a brand
+ * that is cleared editorially but carries no logo in the strip, so a page
+ * cannot render a broken image for an outlet that was removed from the list.
+ */
+export function assertOutletMarkFor(name: string) {
+  const cleared = assertLogoPublishable(name);
+  const outlet = mediaOutlets.find((entry) => entry.name === cleared);
+
+  if (!outlet) {
+    throw new Error(`${cleared} has no published outlet logo`);
+  }
+
+  return assertMediaOutletMark(outlet);
+}
+
 export function assertMediaBarLoopCopies(value: number) {
   if (!Number.isInteger(value)) {
     throw new Error("Media bar loop copy count must be an integer");
@@ -106,8 +134,12 @@ export function assertMediaBarLoopCopies(value: number) {
     throw new Error("Media bar loop needs at least two copies to seam");
   }
 
-  if (value !== 2) {
-    throw new Error("Media bar loop uses exactly two copies");
+  // Derived from the constant so the message cannot go stale when the copy
+  // count changes.
+  if (value !== MEDIA_BAR_LOOP_COPIES) {
+    throw new Error(
+      `Media bar loop uses exactly ${MEDIA_BAR_LOOP_COPIES} copies`,
+    );
   }
 
   return value;
@@ -129,6 +161,25 @@ export const PUBLISHED_THESIS =
   "I think of blockchain like plumbing. Nobody should have to admire the pipes.";
 export const LEGACY_THESIS =
   "Trust shouldn't be a promise. It should be architecture.";
+export const PUBLISHED_ONE_LINER =
+  "I build the orchestration layer for programmable money.";
+
+export function assertLockedOneLiner(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error("Locked one-liner is required");
+  }
+  if (trimmed.includes("placeholder")) {
+    throw new Error("Placeholder one-liner is not published");
+  }
+  if (trimmed === LEGACY_THESIS) {
+    throw new Error("Trust-as-architecture one-liner is not published");
+  }
+  if (trimmed !== PUBLISHED_ONE_LINER) {
+    throw new Error("Locked one-liner must be the orchestration-layer line");
+  }
+  return trimmed;
+}
 
 export function assertBookingEmail(value: string) {
   const trimmed = value.trim();

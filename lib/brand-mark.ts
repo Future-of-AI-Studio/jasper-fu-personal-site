@@ -1,5 +1,5 @@
 export const PUBLISHED_MONOGRAM = "JF.";
-export const PUBLISHED_SEAL_SRC = "/media-kit/jasper-fu-seal.png";
+export const PUBLISHED_SEAL_SRC = "/media-kit/jasper-fu-seal.svg";
 
 export function assertMonogram(value: string) {
   const trimmed = value.trim();

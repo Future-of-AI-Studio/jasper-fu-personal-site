@@ -103,14 +103,6 @@ export function Wordmark() {
       <Link className="wordmark__home" href="/" aria-label={identity.name}>
         <JasperSeal />
       </Link>
-      <span className="wordmark__lockup">
-        <Link className="wordmark__name" href="/">
-          {identity.name}
-        </Link>
-        <span className="wordmark__tag">
-          <TitleWithCoinsub />
-        </span>
-      </span>
     </span>
   );
 }

@@ -15,7 +15,6 @@ export const engagementTypes = [
 export type EngagementType = (typeof engagementTypes)[number];
 
 export const MAX_SPEAKING_EVENT_NAME = 160;
-export const MAX_SPEAKING_DATE = 80;
 export const MAX_SPEAKING_LOCATION = 120;
 export const MAX_SPEAKING_AUDIENCE = 40;
 export const MAX_SPEAKING_NAME = 80;
@@ -28,7 +27,8 @@ export const SPEAKING_NOTES_PREVIEW_MAX = 40;
 export type SpeakingBookingDraft = {
   engagementType: string;
   eventName: string;
-  date: string;
+  startDate: string;
+  endDate: string;
   location: string;
   audience: string;
   name: string;
@@ -42,7 +42,8 @@ export type SpeakingBookingDraft = {
 export const emptySpeakingBooking: SpeakingBookingDraft = {
   engagementType: "",
   eventName: "",
-  date: "",
+  startDate: "",
+  endDate: "",
   location: "",
   audience: "",
   name: "",
@@ -61,6 +62,35 @@ function optionalLimited(max: number, tooLong: string) {
     .transform((value) => value || undefined);
 }
 
+/** What <input type="date"> submits. */
+export const SPEAKING_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * The pattern only proves the shape — "2026-13-01" is four-two-two digits
+ * and still not a date. Round-tripping through Date is what rejects an
+ * impossible month or day.
+ */
+export function isSpeakingDate(value: string) {
+  if (!SPEAKING_DATE_PATTERN.test(value)) {
+    return false;
+  }
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value
+  );
+}
+
+function optionalDate(label: string) {
+  return z
+    .string()
+    .trim()
+    .refine((value) => value === "" || isSpeakingDate(value), {
+      message: `${label} must be a valid date`,
+    })
+    .transform((value) => value || undefined);
+}
+
 const speakingBookingSchema = z.object({
   engagementType: z
     .string({ error: "Engagement type is required" })
@@ -76,7 +106,8 @@ const speakingBookingSchema = z.object({
     .trim()
     .min(1, "Event name is required")
     .max(MAX_SPEAKING_EVENT_NAME, "Event name is too long"),
-  date: optionalLimited(MAX_SPEAKING_DATE, "Date is too long"),
+  startDate: optionalDate("Start date"),
+  endDate: optionalDate("End date"),
   location: optionalLimited(MAX_SPEAKING_LOCATION, "Location is too long"),
   audience: optionalLimited(MAX_SPEAKING_AUDIENCE, "Audience size is too long"),
   name: z
@@ -97,7 +128,30 @@ const speakingBookingSchema = z.object({
   phone: optionalLimited(MAX_SPEAKING_PHONE, "Phone is too long"),
   budget: optionalLimited(MAX_SPEAKING_BUDGET, "Budget range is too long"),
   notes: optionalLimited(MAX_SPEAKING_NOTES, "Notes are too long"),
-});
+})
+  // A range the free-text field could never check. ISO dates compare
+  // correctly as strings, so an equal pair is a valid single-day booking.
+  .superRefine((booking, ctx) => {
+    if (booking.endDate && !booking.startDate) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Start date is required with an end date",
+        path: ["startDate"],
+      });
+      return;
+    }
+    if (
+      booking.startDate &&
+      booking.endDate &&
+      booking.endDate < booking.startDate
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: "End date cannot be before the start date",
+        path: ["endDate"],
+      });
+    }
+  });
 
 export type SpeakingBooking = z.infer<typeof speakingBookingSchema> & {
   routeTo: string;
@@ -115,7 +169,8 @@ export function speakingPreviewEntries(draft: SpeakingBookingDraft) {
   return [
     ["engagement_type", draft.engagementType.trim()],
     ["event_name", draft.eventName.trim()],
-    ["date", draft.date.trim()],
+    ["start_date", draft.startDate.trim()],
+    ["end_date", draft.endDate.trim()],
     ["location", draft.location.trim()],
     ["audience_size", draft.audience.trim()],
     ["requested_by", draft.name.trim()],
@@ -158,7 +213,8 @@ export function speakingDraftFromBooking(booking: SpeakingBooking): SpeakingBook
   return {
     engagementType: booking.engagementType,
     eventName: booking.eventName,
-    date: booking.date ?? "",
+    startDate: booking.startDate ?? "",
+    endDate: booking.endDate ?? "",
     location: booking.location ?? "",
     audience: booking.audience ?? "",
     name: booking.name,
