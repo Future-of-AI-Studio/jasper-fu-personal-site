@@ -19,13 +19,12 @@ export const metadata: Metadata = {
 
 export default function MediaKitPage() {
   return (
-    <article className="media-kit-page">
+    <article className="media-kit-page" data-page-entrance>
       {/* One screen: the ask, the button, and what to expect. The form lives
           in a dialog so the page does not open on a long scroll. */}
       <section className="media-kit-hero">
         <PageHead
-          eyebrow="Media kit"
-          title="Media Kit"
+            title="Media Kit"
           lede={assertMediaKitPromise(MEDIA_KIT_PROMISE)}
         >
           <MediaKitRequestDialog

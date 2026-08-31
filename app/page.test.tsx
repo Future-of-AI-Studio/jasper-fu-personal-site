@@ -28,6 +28,16 @@ import {
   mediaOutlets,
 } from "../lib/identity";
 import {
+  HERO_ENTRANCE_ATTRIBUTE,
+  HERO_STAGE_COPY,
+  HERO_STAGE_CTA,
+  HERO_STAGE_NAME,
+  HERO_STAGE_OUTLETS,
+  HERO_STAGE_PORTRAIT,
+  HERO_STAGES_ON_ELEMENTS,
+  parseHeroEntranceStage,
+} from "../lib/motion/hero-entrance";
+import {
   PRESS_THUMB_HEIGHT,
   PRESS_THUMB_WIDTH,
 } from "../lib/press-thumbnail";
@@ -104,6 +114,77 @@ function verifyHeroComposition() {
   const cta = screen.getByRole("link", { name: "Book to Speak" });
   expect(cta.classList.contains("marker-link")).toBe(true);
   expect(cta.getAttribute("href")).toBe("/speaking");
+}
+
+function verifyHeroEntranceStages() {
+  const staged = [
+    ...document.querySelectorAll(`[${HERO_ENTRANCE_ATTRIBUTE}]`),
+  ];
+  const stages = staged.map((node) =>
+    node.getAttribute(HERO_ENTRANCE_ATTRIBUTE),
+  );
+
+  // The name leads, the portrait follows, the intro and the topic list share
+  // one stage so they arrive together, and the outlet strip lands last.
+  expect(stages).toEqual([
+    HERO_STAGE_NAME,
+    HERO_STAGE_PORTRAIT,
+    HERO_STAGE_COPY,
+    HERO_STAGE_COPY,
+    HERO_STAGE_OUTLETS,
+  ]);
+  stages.forEach((stage) => {
+    expect(parseHeroEntranceStage(stage ?? "")).toBe(stage);
+    expect(HERO_STAGES_ON_ELEMENTS).toContain(stage);
+  });
+  // The closing stage highlights the masthead CTA, which is chrome on every
+  // page — the stylesheet scopes it on the home root instead of the hero
+  // marking an element it does not own.
+  expect(stages).not.toContain(HERO_STAGE_CTA);
+
+  expect(staged[0]?.classList.contains("hero__name")).toBe(true);
+  expect(staged[1]?.classList.contains("hero__portrait")).toBe(true);
+  expect(staged[2]?.classList.contains("hero__intro")).toBe(true);
+  expect(staged[3]?.classList.contains("hero__topics")).toBe(true);
+  expect(staged[4]?.classList.contains("media-bar")).toBe(true);
+
+  // The wipe masks a nested span, so the heading still reads as one string.
+  const wiped = document.querySelector(".hero__name-type");
+  expect(wiped?.textContent).toBe(identity.name);
+  expect(wiped?.parentElement?.classList.contains("hero__name")).toBe(true);
+  // Retired with the typewriter: the caret and its wrapper are gone.
+  expect(document.querySelector(".hero__name-caret")).toBeNull();
+  expect(document.querySelector(".hero__name-line")).toBeNull();
+
+  // The scroll-reveal observer no longer owns the hero; the entrance does.
+  expect(document.querySelectorAll(".hero [data-reveal]")).toHaveLength(0);
+  expect(document.querySelector(".hero")?.hasAttribute("data-reveal")).toBe(
+    false,
+  );
+}
+
+function verifyScrollReveal() {
+  const bands = [...document.querySelectorAll(".band")];
+  // Every band below the hero fades up on scroll — none may be missed, or it
+  // would sit at full opacity between two that animate.
+  expect(bands.length).toBeGreaterThan(0);
+  bands.forEach((band) => {
+    expect(band.hasAttribute("data-reveal")).toBe(true);
+  });
+
+  // The strip between the hero and the first band belongs to the entrance,
+  // so it must not also be handed to the observer.
+  const strip = document.querySelector(".media-bar");
+  expect(strip?.hasAttribute("data-reveal")).toBe(false);
+  expect(strip?.getAttribute(HERO_ENTRANCE_ATTRIBUTE)).toBe(
+    HERO_STAGE_OUTLETS,
+  );
+
+  // SectionIntro brings its own data-reveal, so a band that holds one nests
+  // two. The stylesheet drops the inner rise so the movement never compounds.
+  expect(
+    document.querySelectorAll("[data-reveal] [data-reveal]").length,
+  ).toBeGreaterThan(0);
 }
 
 function verifyHomeMediaBar() {
@@ -305,6 +386,16 @@ describe("HomePage", () => {
   it("renders Version B hero, recognition bar, and kit CTAs", () => {
     render(<HomePage />);
     verifyHomePage();
+  });
+
+  it("stages the hero entrance from the name to the outlet strip", () => {
+    render(<HomePage />);
+    verifyHeroEntranceStages();
+  });
+
+  it("hands every band below the hero to the scroll reveal", () => {
+    render(<HomePage />);
+    verifyScrollReveal();
   });
 
   it("leads the hero with the oversized name, headshot, and topic column", () => {

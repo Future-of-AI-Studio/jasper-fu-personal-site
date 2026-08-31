@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { ABOUT_FAQ_PUBLISHED_COUNT, ABOUT_PULL_QUOTE, aboutBioParagraphs, aboutFaqs, bios, BOOK_TO_SPEAK_CTA, careerTimeline, companyBoilerplate, credentials, interimBlogPosts, PUBLISHED_CALENDLY_PROMPT, PUBLISHED_RESPONSE_TIME_NOTE, PUBLISHED_SPEAKING_BOOKING_TITLE, PUBLISHED_SPEAKING_INTRO, mediaCoverage, pullQuotes, quickFacts, SEND_REQUEST_CTA, TEAM_CONFIRMATION_COPY, speakingTopics, VIEW_ALL_COVERAGE_CTA, WATCH_INTERVIEW_CTA } from "../lib/copy";
+import { ABOUT_FAQ_PUBLISHED_COUNT, ABOUT_PULL_QUOTE, aboutBioParagraphs, aboutFaqs, bios, BOOK_TO_SPEAK_CTA, careerTimeline, CAREER_TIMELINE_DRAFT, CAREER_TIMELINE_DRAFT_APPROVED, companyBoilerplate, companyStanding, credentials, CREDENTIALS_DRAFT_APPROVED, interimBlogPosts, PUBLISHED_CALENDLY_PROMPT, PUBLISHED_RESPONSE_TIME_NOTE, PUBLISHED_SPEAKING_BOOKING_TITLE, PUBLISHED_SPEAKING_INTRO, mediaCoverage, pullQuotes, quickFacts, SEND_REQUEST_CTA, TEAM_CONFIRMATION_COPY, speakingTopics, VIEW_ALL_COVERAGE_CTA, WATCH_INTERVIEW_CTA } from "../lib/copy";
 import {
   assertOutletMarkFor,
   identity,
@@ -127,8 +127,12 @@ function verifyContactPage() {
     "interview",
   );
   expect(screen.getByRole("heading", { level: 1, name: "Press inquiries" })).toBeTruthy();
+  // Only the line the selected type actually routes to. The default is an
+  // interview, which goes to the press inbox, so the speaking and
+  // partnership lines are not on screen to be mistaken for it.
   expect(screen.getByText(/press@coinsub.io/)).toBeTruthy();
-  expect(screen.getByText(/speaking@jasperfu.com/)).toBeTruthy();
+  expect(screen.queryByText(/speaking@jasperfu.com/)).toBeNull();
+  expect(document.querySelectorAll(".route-list li")).toHaveLength(1);
   expect(
     screen.getByRole("link", { name: "Open Calendly" }).getAttribute("href"),
   ).toBe("https://calendly.com/jasper-coinsub");
@@ -205,6 +209,23 @@ function verifyMediaKitRequest() {
 
 function renderAbout() {
   return render(<AboutPage />);
+}
+
+/**
+ * Every public page used to open with an eyebrow naming the page the reader
+ * was already on, above a heading that said much the same thing. They were
+ * all retired. Sweeping every route rather than listing the ones changed by
+ * hand, because the hand-written list is exactly what missed /press/media-
+ * coverage the first time.
+ */
+function verifyNoPageNameEyebrow(container: HTMLElement, route: string) {
+  const head = container.querySelector(".page-head");
+  expect(head).toBeTruthy();
+  const eyebrow = head?.querySelector(":scope > .eyebrow");
+  expect(
+    eyebrow,
+    `${route} still prints a page-name eyebrow: ${eyebrow?.textContent}`,
+  ).toBeNull();
 }
 
 function verifyAboutShowcase(container: HTMLElement) {
@@ -297,7 +318,10 @@ function verifyAboutAbsences() {
 function verifyAboutPageHead(container: HTMLElement) {
   const pageHead = container.querySelector(".page-head--label");
   expect(pageHead).toBeTruthy();
-  expect(pageHead?.querySelector(".eyebrow")?.textContent).toBe("About");
+  // No page-name eyebrow: the label read "About" on the About page, above a
+  // heading that said the same. The visually-hidden h1 still names the page
+  // for assistive tech.
+  expect(pageHead?.querySelector(".eyebrow")).toBeNull();
   expect(pageHead?.querySelector("h1")?.className).toContain("visually-hidden");
   expect(pageHead?.querySelector("cite")).toBeNull();
   expect(pageHead?.textContent).not.toContain(identity.name);
@@ -392,15 +416,104 @@ describe("public routes", () => {
     const columns = [...(row?.children ?? [])];
     expect(columns).toHaveLength(2);
     expect(columns[0]?.querySelector(".eyebrow")?.textContent).toBe("Journey");
-    expect(columns[1]?.querySelector(".eyebrow")?.textContent).toBe("Credentials");
     expect(columns[0]?.querySelectorAll(".career-timeline__item")).toHaveLength(
       careerTimeline.length,
     );
-    expect(columns[1]?.querySelectorAll(".career-timeline__item")).toHaveLength(
+
+    // The right column carries two lists, because the old single list put
+    // Jasper's degree and Coinsub's registration under one heading and only
+    // one of them is about him.
+    const rightEyebrows = [
+      ...(columns[1]?.querySelectorAll(".eyebrow") ?? []),
+    ].map((el) => el.textContent);
+    expect(rightEyebrows).toEqual(["Credentials", "Company"]);
+    const rightLists = columns[1]?.querySelectorAll("ul.credentials-list") ?? [];
+    expect(rightLists).toHaveLength(2);
+    expect(rightLists[0]?.querySelectorAll(".career-timeline__item")).toHaveLength(
       credentials.length,
     );
-    // Credentials no longer trails the page as its own full-width band.
-    expect(container.querySelectorAll("ul.credentials-list")).toHaveLength(1);
+    expect(rightLists[1]?.querySelectorAll(".career-timeline__item")).toHaveLength(
+      companyStanding.length,
+    );
+    // Neither list trails the page as its own full-width band.
+    expect(container.querySelectorAll("ul.credentials-list")).toHaveLength(2);
+  });
+
+  it("opens every public page on its heading, with no page-name eyebrow", () => {
+    const routes = [
+      ["/about", <AboutPage key="about" />],
+      ["/press", <PressPage key="press" />],
+      ["/press/media-coverage", <CoveragePage key="coverage" />],
+      ["/speaking", <SpeakingPage key="speaking" />],
+      ["/media-kit", <MediaKitPage key="kit" />],
+      ["/contact", <ContactPage key="contact" />],
+    ] as const;
+
+    for (const [route, element] of routes) {
+      const { container, unmount } = render(element);
+      verifyNoPageNameEyebrow(container, route);
+      unmount();
+    }
+  });
+
+  it("keeps the section eyebrows that orient rather than repeat", () => {
+    // Only the page-name labels went. Section eyebrows still carry the
+    // internal hierarchy.
+    const { container } = renderAbout();
+    const labels = [...container.querySelectorAll(".eyebrow")].map(
+      (el) => el.textContent,
+    );
+    expect(labels).toContain("Biography");
+    expect(labels).toContain("Journey");
+    expect(labels).toContain("Credentials");
+    expect(labels).not.toContain("About");
+  });
+
+  it("keeps Jasper's credentials apart from Coinsub's standing", () => {
+    const { container } = renderAbout();
+    const lists = [...container.querySelectorAll("ul.credentials-list")];
+    const personal = lists[0]?.textContent ?? "";
+    const corporate = lists[1]?.textContent ?? "";
+
+    expect(personal).toContain("Emory University");
+    expect(personal).not.toContain("MSB-registered");
+    expect(corporate).toContain("MSB-registered");
+    expect(corporate).toContain("Middletown, Delaware");
+    expect(corporate).not.toContain("Emory");
+
+    // Unconfirmed LinkedIn detail stays off a build.
+    expect(CREDENTIALS_DRAFT_APPROVED).toBe(false);
+    expect(personal).not.toContain("Strategy and Management Consulting");
+    expect(personal).not.toContain("Darden");
+    // And the two certificates that were judged not press copy never appear.
+    expect(container.textContent).not.toContain("Oracle");
+    expect(container.textContent).not.toContain("Python");
+  });
+
+  it("keeps the unconfirmed LinkedIn timeline off the page", () => {
+    const { container } = renderAbout();
+    const journey = container.querySelector(".career-timeline")?.textContent ?? "";
+
+    // Drafted from a self-reported source and not yet confirmed by Jasper.
+    expect(CAREER_TIMELINE_DRAFT_APPROVED).toBe(false);
+    for (const entry of CAREER_TIMELINE_DRAFT) {
+      // The period is the part that only exists in the draft; the Coinsub
+      // sentence is shared with the published timeline.
+      expect(journey).not.toContain(entry.period);
+    }
+    expect(journey).not.toContain("Director of Product Management");
+    // None of the advisory companies has been cleared to appear anywhere.
+    for (const company of ["Otim Labs", "Aztlan", "Vantack", "Heimata", "Walapay"]) {
+      expect(container.textContent).not.toContain(company);
+    }
+    // The published spine is what still renders, and undated.
+    for (const entry of careerTimeline) {
+      expect(journey).toContain(entry.detail);
+      expect(entry.period).toBeUndefined();
+    }
+    expect(container.querySelectorAll(".career-timeline__period")).toHaveLength(
+      0,
+    );
   });
 
   it("publishes each quick fact once, on the hero still rather than a stat band", () => {

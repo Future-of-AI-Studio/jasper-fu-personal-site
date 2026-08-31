@@ -243,7 +243,7 @@ export function createSpeakingMailto(booking: SpeakingBooking) {
   assertBookingEmail(booking.routeTo);
 
   const subject = encodeURIComponent(
-    `${booking.engagementType} — ${booking.eventName}`,
+    `${booking.engagementType}: ${booking.eventName}`,
   );
   const body = encodeURIComponent(
     compileSpeakingRequestJson(speakingDraftFromBooking(booking), "send"),

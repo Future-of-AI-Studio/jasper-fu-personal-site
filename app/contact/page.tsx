@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 
-import { InquiryForm } from "../../components/contact/inquiry-form";
+import { ContactPanel } from "../../components/contact/contact-panel";
 import { PageHead } from "../../components/site/page-head";
 import { contactIntro } from "../../lib/copy";
-import { identity } from "../../lib/identity";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -12,23 +11,13 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <article className="contact-layout">
-      <div className="contact-copy">
-        <PageHead
-          eyebrow="Contact"
-          title="Press inquiries"
-          lede={contactIntro}
-        />
-        <div className="contact-routing">
-          <p className="eyebrow">Routing</p>
-          <ul className="route-list">
-            <li>Interview and comment requests: {identity.pressEmail}</li>
-            <li>Speaking and panel requests: {identity.speakingEmail}</li>
-            <li>Partnership and business: {identity.partnershipEmail}</li>
-          </ul>
-        </div>
-      </div>
-      <InquiryForm />
+    <article className="contact-layout" data-page-entrance>
+      {/* The routing list and the form share the selected inquiry type, so a
+          client component owns it. The head stays server-rendered and is
+          handed through as children. */}
+      <ContactPanel>
+        <PageHead title="Press inquiries" lede={contactIntro} />
+      </ContactPanel>
     </article>
   );
 }

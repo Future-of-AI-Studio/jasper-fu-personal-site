@@ -18,6 +18,14 @@ import { NavigationList } from "./primary-nav";
 const navigation = parseNavigationItems(primaryNavigation);
 const headerCta = assertHeaderCta(HEADER_CTA);
 
+/**
+ * The scroll reveal hides `[data-reveal]` from first paint so a section is
+ * never painted and then taken away. Nothing adds `.is-revealed` without
+ * scripting, so without this the home page would be blank below the hero.
+ */
+export const REVEAL_NOSCRIPT_FALLBACK =
+  "[data-reveal]{opacity:1!important;transform:none!important}";
+
 export function SiteHeader() {
   return (
     <Masthead>
@@ -94,6 +102,11 @@ export function SiteShell({ children }: { children: ReactNode }) {
       </main>
       <SiteFooter />
       <MotionRoot />
+      <noscript>
+        <style
+          dangerouslySetInnerHTML={{ __html: REVEAL_NOSCRIPT_FALLBACK }}
+        />
+      </noscript>
     </>
   );
 }

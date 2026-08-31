@@ -1,5 +1,16 @@
 export const DEFAULT_REVEAL_THRESHOLD = 0.18;
 
+/**
+ * Marks a page root as opting into the scroll reveal.
+ *
+ * SectionIntro carries `data-reveal` on every page, so the stylesheet cannot
+ * simply hide the attribute site-wide — pages that are meant to sit still
+ * would go blank until an observer that may never see them says otherwise.
+ * A page opts in by putting this on its root; the CSS keys the hidden state
+ * on `body:has([data-scroll-reveal])`.
+ */
+export const SCROLL_REVEAL_SCOPE_ATTRIBUTE = "data-scroll-reveal";
+
 export type RevealObserverOptions = {
   threshold?: number;
   rootMargin?: string;

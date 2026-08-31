@@ -1,13 +1,21 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 
 import {
   createMailto,
+  EMPTY_INQUIRY_DRAFT,
+  inquiryFieldErrors,
   inquiryLabels,
+  inquiryNeedsScheduling,
   inquiryTypes,
+  isInquiryReady,
   parseInquirySubmission,
   parseInquiryTypeOptions,
+  REQUIRED_INQUIRY_FIELDS,
+  type InquiryDraft,
+  type InquiryField,
+  type InquiryType,
 } from "../../lib/contact";
 import {
   SEND_REQUEST_CTA,
@@ -19,39 +27,63 @@ import {
 } from "../../lib/copy";
 import { assertCalendlyUrl, identity } from "../../lib/identity";
 
-const NAME_REQUIRED = "Name is required";
+const INCOMPLETE_HINT =
+  "Add your name, organization, a valid email, and a note to send this request.";
 
 export function InquiryForm({
   defaultType = "interview",
   types = inquiryTypes,
   showScheduling = true,
   onCancel,
+  onTypeChange,
 }: {
-  defaultType?: (typeof inquiryTypes)[number];
+  defaultType?: InquiryType;
   /** Narrowed on pages dedicated to a single kind of request. */
-  types?: readonly (typeof inquiryTypes)[number][];
-  /** Calendly books a conversation, which a media-kit request does not need. */
+  types?: readonly InquiryType[];
+  /**
+   * Whether this form may offer scheduling at all. Even when it may, the
+   * link only shows for types that book a conversation.
+   */
   showScheduling?: boolean;
   /** Adds a Cancel action beside submit — used when the form is in a dialog. */
   onCancel?: () => void;
+  /** Lets the page mirror the reader's choice, e.g. in the routing list. */
+  onTypeChange?: (inquiryType: InquiryType) => void;
 }) {
   const options = parseInquiryTypeOptions(types, defaultType);
+  const [draft, setDraft] = useState<InquiryDraft>({
+    ...EMPTY_INQUIRY_DRAFT,
+    inquiryType: defaultType,
+  });
+  const [touched, setTouched] = useState<Partial<Record<InquiryField, true>>>({});
+  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const [mailto, setMailto] = useState("");
 
+  const errors = useMemo(() => inquiryFieldErrors(draft), [draft]);
+  const ready = isInquiryReady(draft);
+  const inquiryType = draft.inquiryType as InquiryType;
+  // Two gates: the form has to allow scheduling, and the chosen type has to
+  // be one that books a conversation rather than asks for a file.
+  const offersScheduling = showScheduling && inquiryNeedsScheduling(inquiryType);
+
+  /** Shown once the reader has left the field, or tried to send. */
+  const shownError = (field: InquiryField) =>
+    submitted || touched[field] ? (errors[field] ?? "") : "";
+
+  function update(field: InquiryField, value: string) {
+    setDraft((previous) => ({ ...previous, [field]: value }));
+    if (field === "inquiryType") {
+      onTypeChange?.(value as InquiryType);
+    }
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    setSubmitted(true);
 
     try {
-      const parsed = parseInquirySubmission({
-        name: form.get("name"),
-        organization: form.get("organization"),
-        email: form.get("email"),
-        inquiryType: form.get("inquiryType"),
-        notes: form.get("notes"),
-        deadline: form.get("deadline"),
-      });
+      const parsed = parseInquirySubmission(draft);
       setError("");
       setMailto(createMailto(parsed));
     } catch (caught) {
@@ -60,51 +92,63 @@ export function InquiryForm({
     }
   }
 
-  const nameError = error === NAME_REQUIRED ? error : "";
-  const submitError = error && error !== NAME_REQUIRED ? error : "";
+  const fieldProps = (field: InquiryField) => ({
+    id: field,
+    name: field,
+    value: draft[field],
+    onChange: (
+      event: React.ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >,
+    ) => update(field, event.target.value),
+    onBlur: () => setTouched((previous) => ({ ...previous, [field]: true })),
+    "aria-invalid": shownError(field) ? (true as const) : undefined,
+    "aria-describedby": shownError(field) ? `${field}-error` : undefined,
+  });
+
+  const message = (field: InquiryField) => {
+    const text = shownError(field);
+    return text ? (
+      <p className="form-error" id={`${field}-error`} role="alert">
+        {text}
+      </p>
+    ) : null;
+  };
 
   return (
     <form className="inquiry-form" id="inquiry-form" noValidate onSubmit={handleSubmit}>
       <div className="inquiry-form__field">
         <label htmlFor="name">Name</label>
-        <input
-          aria-invalid={nameError ? true : undefined}
-          autoComplete="name"
-          id="name"
-          name="name"
-          type="text"
-        />
-        {nameError ? (
-          <p className="form-error" role="alert">
-            {nameError}
-          </p>
-        ) : null}
+        <input autoComplete="name" required type="text" {...fieldProps("name")} />
+        {message("name")}
       </div>
       <div className="inquiry-form__field">
         <label htmlFor="organization">Organization / outlet</label>
         <input
           autoComplete="organization"
-          id="organization"
-          name="organization"
+          required
           type="text"
+          {...fieldProps("organization")}
         />
+        {message("organization")}
       </div>
       {/* Email and deadline share a row: with the type picker hidden on a
           dedicated request, the deadline would otherwise sit alone. */}
       <div className="inquiry-form__field">
         <label htmlFor="email">Email</label>
-        <input autoComplete="email" id="email" name="email" type="email" />
+        <input autoComplete="email" required type="email" {...fieldProps("email")} />
+        {message("email")}
       </div>
       <div className="inquiry-form__field">
         <label htmlFor="deadline">Deadline (optional)</label>
-        <input id="deadline" name="deadline" type="text" />
+        <input type="text" {...fieldProps("deadline")} />
       </div>
       {/* A single offered type is not a choice, so it travels as a hidden
           value rather than a select the reader cannot change. */}
       {options.length > 1 ? (
         <div className="inquiry-form__field inquiry-form__field--wide">
           <label htmlFor="inquiryType">Inquiry type</label>
-          <select defaultValue={defaultType} id="inquiryType" name="inquiryType">
+          <select {...fieldProps("inquiryType")}>
             {options.map((type) => (
               <option key={type} value={type}>
                 {inquiryLabels[type]}
@@ -113,13 +157,14 @@ export function InquiryForm({
           </select>
         </div>
       ) : (
-        <input defaultValue={defaultType} name="inquiryType" type="hidden" />
+        <input name="inquiryType" type="hidden" value={draft.inquiryType} readOnly />
       )}
       <div className="inquiry-form__field inquiry-form__field--wide">
         <label htmlFor="notes">Notes</label>
-        <textarea id="notes" name="notes" rows={6} />
+        <textarea required rows={6} {...fieldProps("notes")} />
+        {message("notes")}
       </div>
-      {showScheduling ? (
+      {offersScheduling ? (
         <div className="inquiry-form__field inquiry-form__field--wide" data-calendly-block="">
           <p className="eyebrow">Book a time</p>
           <p>{assertCalendlyPrompt(calendlyPrompt)}</p>
@@ -142,9 +187,16 @@ export function InquiryForm({
         </p>
       ) : null}
       <p className="form-note">{assertResponseTimeNote(responseTimeNote)}</p>
-      {submitError ? (
+      {/* A disabled button cannot be focused and says nothing about why, so
+          it is described by this line rather than left to be guessed at. */}
+      {!ready ? (
+        <p className="form-note" id="inquiry-incomplete">
+          {INCOMPLETE_HINT}
+        </p>
+      ) : null}
+      {error ? (
         <p className="form-error" role="alert">
-          {submitError}
+          {error}
         </p>
       ) : null}
       <div className="inquiry-form__actions">
@@ -157,10 +209,17 @@ export function InquiryForm({
             Cancel
           </button>
         ) : null}
-        <button className="button-link" type="submit">
+        <button
+          aria-describedby={ready ? undefined : "inquiry-incomplete"}
+          className="button-link"
+          disabled={!ready}
+          type="submit"
+        >
           {assertSendRequestCta(SEND_REQUEST_CTA)}
         </button>
       </div>
     </form>
   );
 }
+
+export { REQUIRED_INQUIRY_FIELDS };

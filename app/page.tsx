@@ -34,6 +34,13 @@ import {
 } from "../lib/hero";
 import { assertOutletMarkFor, assertThesis, identity } from "../lib/identity";
 import {
+  HERO_STAGE_COPY,
+  HERO_STAGE_NAME,
+  HERO_STAGE_PORTRAIT,
+  parseHeroEntranceStage,
+} from "../lib/motion/hero-entrance";
+import { SCROLL_REVEAL_SCOPE_ATTRIBUTE } from "../lib/motion/reveal";
+import {
   assertPressThumbnail,
   PRESS_THUMB_HEIGHT,
   PRESS_THUMB_WIDTH,
@@ -49,17 +56,28 @@ export default function HomePage() {
   const featuredOutlet = assertOutletMarkFor(featured.outlet);
 
   return (
-    <div className="home">
+    <div className="home" {...{ [SCROLL_REVEAL_SCOPE_ATTRIBUTE]: "" }}>
       <section className="hero">
         <p aria-hidden="true" className="hero__watermark">
           {assertHeroWatermark(identity.name)}
         </p>
 
-        <h1 className="hero__name" data-reveal>
-          {assertHeroDisplayName(identity.name)}
+        {/* The name is nested so the wipe's mask resolves against the width
+            of the text rather than the full grid row. The heading still reads
+            as one string to assistive tech. */}
+        <h1
+          className="hero__name"
+          data-hero-stage={parseHeroEntranceStage(HERO_STAGE_NAME)}
+        >
+          <span className="hero__name-type">
+            {assertHeroDisplayName(identity.name)}
+          </span>
         </h1>
 
-        <div className="hero__portrait">
+        <div
+          className="hero__portrait"
+          data-hero-stage={parseHeroEntranceStage(HERO_STAGE_PORTRAIT)}
+        >
           <div aria-hidden="true" className="hero__portrait-halftone" />
           <img
             alt={identity.name}
@@ -70,7 +88,12 @@ export default function HomePage() {
           />
         </div>
 
-        <div className="hero__intro" data-reveal>
+        {/* Intro and topics share one stage rather than taking two, so they
+            arrive together on either side of the portrait. */}
+        <div
+          className="hero__intro"
+          data-hero-stage={parseHeroEntranceStage(HERO_STAGE_COPY)}
+        >
           <p className="eyebrow">
             <TitleWithCoinsub />
           </p>
@@ -80,7 +103,10 @@ export default function HomePage() {
           </Link>
         </div>
 
-        <ul className="hero__topics" data-reveal>
+        <ul
+          className="hero__topics"
+          data-hero-stage={parseHeroEntranceStage(HERO_STAGE_COPY)}
+        >
           {parseHeroTopics(heroTopics).map((topic) => (
             <li
               className={
@@ -98,7 +124,9 @@ export default function HomePage() {
 
       <LogoCarousel />
 
-      <section className="band home-brief">
+      {/* Below the hero every band fades up as it comes into view. The
+          entrance owns the first screen; the observer owns the rest. */}
+      <section className="band home-brief" data-reveal>
         <div className="home-brief__bio">
           <SectionIntro eyebrow="Biography">
             <p className="home-brief__lede">{homeBio.lede}</p>
@@ -122,7 +150,7 @@ export default function HomePage() {
         </aside>
       </section>
 
-      <section className="band featured-interview">
+      <section className="band featured-interview" data-reveal>
         <div className="featured-interview__head">
           <p className="eyebrow">Featured interview</p>
           <h2 className="featured-interview__title">{featured.title}</h2>
@@ -163,7 +191,7 @@ export default function HomePage() {
         ) : null}
       </section>
 
-      <section className="band">
+      <section className="band" data-reveal>
         <div className="post-head">
           <p className="eyebrow">Latest from Coinsub</p>
           <h2 className="post-head__title">
@@ -199,7 +227,7 @@ export default function HomePage() {
       </section>
 
       {FLAGSHIP_ESSAY_READY ? (
-        <section className="band">
+        <section className="band" data-reveal>
           <SectionIntro
             eyebrow="Insight"
             title="Trust Shouldn't Be a Promise. It Should Be Architecture."
@@ -215,7 +243,7 @@ export default function HomePage() {
         </section>
       ) : null}
 
-      <section className="band">
+      <section className="band" data-reveal>
         <SectionIntro eyebrow="Media kit" title="Everything a reporter needs">
           <p>{assertMediaKitPromise(MEDIA_KIT_PROMISE)}</p>
           <Link className="button-link" href="/media-kit">

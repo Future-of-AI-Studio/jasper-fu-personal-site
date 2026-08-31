@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+﻿import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -86,7 +86,7 @@ describe("InquiryForm", () => {
     await fillHappyPath();
     expect(
       screen.getByRole("link", { name: "Open email to send" }).getAttribute("href"),
-    ).toContain(encodeURIComponent("Request Media Kit — NASDAQ"));
+    ).toContain(encodeURIComponent("Request Media Kit: NASDAQ"));
   });
 
   it("hides the type picker and Calendly on a dedicated request", () => {
@@ -128,7 +128,7 @@ describe("InquiryForm", () => {
     await fillHappyPath();
     expect(
       screen.getByRole("link", { name: "Open email to send" }).getAttribute("href"),
-    ).toContain(encodeURIComponent("Request Media Kit — NASDAQ"));
+    ).toContain(encodeURIComponent("Request Media Kit: NASDAQ"));
   });
 
   it("offers Cancel beside submit only when a cancel action is given", () => {
@@ -144,7 +144,87 @@ describe("InquiryForm", () => {
     const user = userEvent.setup();
     render(<InquiryForm />);
     await user.type(screen.getByLabelText("Email"), "jane@example.com");
-    await user.click(screen.getByRole("button", { name: SEND_REQUEST_CTA }));
+    // Reported on leaving the field now, rather than on a submit the reader
+    // can no longer reach with the form incomplete.
+    await user.click(screen.getByLabelText("Name"));
+    await user.tab();
     verifyNameErrorNotUnderCalendly();
+  });
+
+  it("keeps send disabled until every required field is valid", async () => {
+    const user = userEvent.setup();
+    render(<InquiryForm />);
+    const send = () => screen.getByRole("button", { name: SEND_REQUEST_CTA });
+
+    expect(send().hasAttribute("disabled")).toBe(true);
+    // The reason is spoken, not left to be guessed: a disabled button takes
+    // no focus and announces nothing on its own.
+    expect(send().getAttribute("aria-describedby")).toBe("inquiry-incomplete");
+    expect(document.getElementById("inquiry-incomplete")).toBeTruthy();
+
+    await user.type(screen.getByLabelText("Name"), "Jane King");
+    await user.type(screen.getByLabelText("Organization / outlet"), "NASDAQ");
+    await user.type(screen.getByLabelText("Notes"), "Need a comment on rails.");
+    // Everything but a valid email.
+    expect(send().hasAttribute("disabled")).toBe(true);
+
+    await user.type(screen.getByLabelText("Email"), "not-an-email");
+    expect(send().hasAttribute("disabled")).toBe(true);
+
+    await user.clear(screen.getByLabelText("Email"));
+    await user.type(screen.getByLabelText("Email"), "jane@example.com");
+    expect(send().hasAttribute("disabled")).toBe(false);
+    expect(send().getAttribute("aria-describedby")).toBeNull();
+    expect(document.getElementById("inquiry-incomplete")).toBeNull();
+  });
+
+  it("reports a bad email on the field once it has been left", async () => {
+    const user = userEvent.setup();
+    render(<InquiryForm />);
+
+    await user.type(screen.getByLabelText("Email"), "not-an-email");
+    // Nothing yet: the reader may still be typing.
+    expect(screen.queryByText("Email must be valid")).toBeNull();
+
+    await user.tab();
+    expect(screen.getByText("Email must be valid")).toBeTruthy();
+    const field = screen.getByLabelText("Email");
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    expect(field.getAttribute("aria-describedby")).toBe("email-error");
+  });
+
+  it("shows Calendly only for the types that book a conversation", async () => {
+    const user = userEvent.setup();
+    render(<InquiryForm />);
+    const calendly = () => screen.queryByRole("link", { name: "Open Calendly" });
+
+    // Interview is the default, and it is a conversation.
+    expect(calendly()).toBeTruthy();
+
+    // Requesting a kit is a file to send, not a call to book.
+    await user.selectOptions(
+      screen.getByLabelText("Inquiry type"),
+      MEDIA_KIT_INQUIRY_TYPE,
+    );
+    expect(calendly()).toBeNull();
+    expect(document.querySelector("[data-calendly-block]")).toBeNull();
+
+    // Other is too vague to put a call in front of.
+    await user.selectOptions(screen.getByLabelText("Inquiry type"), "other");
+    expect(calendly()).toBeNull();
+
+    // Speaking is a conversation again, so it comes back.
+    await user.selectOptions(screen.getByLabelText("Inquiry type"), "speaking");
+    expect(calendly()).toBeTruthy();
+  });
+
+  it("tells the page which type is selected", async () => {
+    const user = userEvent.setup();
+    const seen: string[] = [];
+    render(<InquiryForm onTypeChange={(type) => seen.push(type)} />);
+
+    await user.selectOptions(screen.getByLabelText("Inquiry type"), "speaking");
+    await user.selectOptions(screen.getByLabelText("Inquiry type"), "partnership");
+    expect(seen).toEqual(["speaking", "partnership"]);
   });
 });

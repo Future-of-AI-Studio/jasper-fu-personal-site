@@ -6,12 +6,59 @@ import { describe, expect, it } from "vitest";
 
 import { identity, MEDIA_BAR_LOOP_COPIES } from "./identity";
 import { LOGO_CAROUSEL_BREAKPOINT_PX } from "./logo-carousel";
+import {
+  ABOUT_ENTRANCE_ATTRIBUTE,
+  ABOUT_ENTRANCE_STAGES,
+  ABOUT_STAGE_FRAME,
+  ABOUT_STAT_COUNT,
+  aboutEntranceStep,
+  aboutStatDelayMs,
+} from "./motion/about-entrance";
+import {
+  PAGE_CARD_COUNT,
+  PAGE_STAGE_CONTENT,
+  PAGE_STAGE_DECK,
+  PAGE_STAGE_HEADLINE,
+  pageCardDelayMs,
+  pageEntranceStep,
+  type PageEntranceStage,
+} from "./motion/page-entrance";
+import { SCROLL_REVEAL_SCOPE_ATTRIBUTE } from "./motion/reveal";
+import {
+  heroEntranceStep,
+  HERO_STAGE_COPY,
+  HERO_STAGE_CTA,
+  HERO_STAGE_NAME,
+  HERO_STAGE_OUTLETS,
+  HERO_STAGE_PORTRAIT,
+} from "./motion/hero-entrance";
 
 const css = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), "../app/globals.css"),
   "utf8",
 );
 
+const SHELL_CONTAINER = {
+  min: "80rem",
+  preferred: "85vw",
+  max: "100rem",
+} as const;
+const SHELL_WIDTH =
+  "width: min(var(--container), calc(100% - 2 * var(--gutter)))";
+/* Retired: the shell was pinned at 80rem, so a 2560px display rendered the
+   page at half its width with ~640px dead on either side. */
+const RETIRED_FIXED_SHELL_CONTAINER = "--container: 80rem;";
+/* The whole system is sized in rem, so this step is what enlarges the
+   composition on a large display instead of stranding a 1280px page in the
+   middle of it. 100% up to 1600px, 137.5% by 2560px. */
+const ROOT_FONT_SCALE = {
+  min: "1rem",
+  preferred: "0.6vw + 0.4rem",
+  max: "1.375rem",
+} as const;
+/* A px root font-size would scale the page but silently discard a reader's
+   own default-font-size setting; rem/% here resolves against it. */
+const RETIRED_PX_ROOT_FONT_SIZE = /font-size:\s*\d+px/;
 const HERO_COLUMN_GAP = {
   min: "1rem",
   preferred: "2.5vw",
@@ -19,11 +66,69 @@ const HERO_COLUMN_GAP = {
 } as const;
 const HERO_INTRO_MAX_WIDTH = "24rem";
 const LEGACY_HERO_COPY_MAX_WIDTH = "28rem";
+/* Sized against the hero's own box, not the viewport: --container caps at
+   104rem while vw keeps climbing, so a vw slope drifts away from the shell at
+   exactly the widths the headline is meant to fill. */
 const HERO_NAME_FONT_SIZE = {
   min: "3rem",
-  preferred: "15vw",
-  max: "13rem",
+  preferred: "16.4cqw",
+  max: "22rem",
 } as const;
+const HERO_WATERMARK_FONT_SIZE = {
+  min: "6rem",
+  preferred: "19cqw",
+  max: "26rem",
+} as const;
+const HERO_QUERY_CONTAINER = "container-type: inline-size";
+const HERO_ENTRANCE_GUARD = "@media (prefers-reduced-motion: no-preference)";
+const HERO_NAME_WIPE_KEYFRAMES = "@keyframes hero-name-wipe";
+/* The box shows a third of a mask three times its width, so sliding the mask
+   from its transparent tail to its solid head walks one soft edge across the
+   letters, left to right. Only the mask moves — the letters never shift. */
+const HERO_NAME_WIPE_FROM = "mask-position: 100% 0";
+const HERO_NAME_WIPE_TO = "mask-position: 0% 0";
+const HERO_NAME_MASK_SIZE = "mask-size: 300% 100%";
+/* Retired: the name arrived one character at a time behind a stepped clip,
+   with a blinking caret riding the reveal. */
+const RETIRED_HERO_TYPEWRITER = "@keyframes hero-type";
+const RETIRED_HERO_CARET = "hero__name-caret";
+/* The scroll reveal is its own no-preference block, further down the file
+   than the hero entrance and keyed on the comment above it. */
+/* The page heads used to run a full step larger than the About page's lead,
+   which made /press shout louder than the page carrying the biography and
+   pushed its article thumbnails out of the first screen. Legal keeps the
+   larger scale, so the retired values are asserted against the specific
+   rule rather than the whole stylesheet. */
+const RETIRED_PAGE_HEAD_TITLE_SIZE = "clamp(2.6rem, 5.5vw, 4.6rem)";
+const RETIRED_PAGE_HEAD_LEDE_SIZE = "clamp(1.2rem, 2vw, 1.55rem)";
+const PRESS_TABS_PADDING = "clamp(0.75rem, 1.5vw, 1.25rem)";
+/* Retired: a full section's worth of space above the page's own nav. */
+const RETIRED_PRESS_TABS_PADDING = "clamp(2.5rem, 5vw, 4.75rem)";
+/* The press entrance. Keyed on the comment above its own no-preference
+   block, since the stylesheet has several. */
+const PAGE_ENTRANCE_GUARD = "/* Page entrance ---";
+/* Retired: a single fade on the panel, which moved the whole thing as one
+   block and said nothing about the headline, deck, and cards inside it. */
+const RETIRED_PANEL_ANIMATION = "press-tab-in";
+const PAGE_HEAD_BAND_PADDING = "1.25rem";
+/* A band that opens with its own section label is a new section, not the
+   lede's content, so it gets more air than the card grid case. */
+const PAGE_HEAD_SECTION_PADDING = "4rem";
+/* Retired for the band under a page head: 6rem of section padding plus the
+   grid's own 2rem left the lede 128px clear of the thumbnails it introduces.
+   Ordinary sections keep it. */
+const RETIRED_PAGE_HEAD_BAND_PADDING = "padding-top: 6rem";
+const PRESS_TABS_NAV_MARGIN = "0 0 1.5rem";
+const RETIRED_PRESS_TABS_NAV_MARGIN = "0 0 2.5rem";
+const SCROLL_REVEAL_GUARD = "/* Scroll reveal ---";
+const REVEAL_RISE = "transform: translate3d(0, 1.75rem, 0)";
+const ABOUT_ENTRANCE_GUARD = "/* About entrance ---";
+/* Settles out of a slight zoom rather than sliding: the frame already clips,
+   so the photo reads as coming to rest inside a card that is already there. */
+const ABOUT_PHOTO_ZOOM = "1.06";
+/* Retired with the fixed 80rem shell: viewport-relative hero type. */
+const RETIRED_VIEWPORT_HERO_NAME_SIZE = "15vw";
+const RETIRED_VIEWPORT_HERO_WATERMARK_SIZE = "18vw";
 const HERO_NAME_WEIGHT = "font-weight: 700";
 const HERO_BODY_WEIGHT = "font-weight: 400";
 const HERO_PORTRAIT_LIFT = {
@@ -53,11 +158,30 @@ const HERO_FOLD_CHROME = "15rem";
 const HERO_FOLD_CHROME_MIN = 12;
 const HERO_FOLD_CHROME_MAX = 18;
 const EYEBROW_SIZE_REM = 0.75;
-const ABOUT_LABEL_REM = EYEBROW_SIZE_REM;
-/* Retired: the About label was set at twice the eyebrow scale in gold, which
-   read as neither an eyebrow nor a headline. */
-const RETIRED_ABOUT_LABEL_REM = EYEBROW_SIZE_REM * 2;
+/* Retired with the page-name eyebrows: /about no longer prints a label
+   reading "About" above a page the reader is already on. */
+const RETIRED_ABOUT_LABEL_RULE = ".page-head--label .eyebrow";
 const ABOUT_HEADLINE_FONT_SIZE = "clamp(2.1rem, 4.4vw, 3.5rem)";
+/* The About header, its deck, and the showcase share one screen. The measure
+   widened rather than the type shrinking: at 20ch the 54-character one-liner
+   broke over three lines, and that third line was what pushed the image past
+   the fold. Everything below is the spacing trimmed around it. */
+const ABOUT_HEADLINE_MEASURE = "28ch";
+const RETIRED_ABOUT_HEADLINE_MEASURE = "20ch";
+const ABOUT_HEAD_MARGIN = "clamp(1.25rem, 2.4vw, 1.75rem)";
+const RETIRED_ABOUT_HEAD_MARGIN = "clamp(2rem, 4vw, 3rem)";
+const ABOUT_LABEL_MARGIN = "0 0 0.7rem";
+const RETIRED_ABOUT_LABEL_MARGIN = "0 0 1.15rem";
+const ABOUT_DECK_MARGIN = "clamp(0.7rem, 1.4vw, 0.95rem)";
+const RETIRED_ABOUT_DECK_MARGIN = "clamp(1rem, 2vw, 1.35rem)";
+const ABOUT_ARTICLE_PADDING = "0.5rem";
+const RETIRED_ABOUT_ARTICLE_PADDING = "1.25rem";
+const ABOUT_FOLD_CHROME = "20.25rem";
+const ABOUT_FOLD_CHROME_MIN = 20;
+const ABOUT_FOLD_CHROME_MAX = 22.9;
+/* Retired with the page-name eyebrow: the header lost ~31px, and a budget
+   still sized for it cropped the photo by that much on every short window. */
+const RETIRED_ABOUT_FOLD_CHROME = "22.25rem";
 /* The quote now sits under the one-liner as a deck. */
 const ABOUT_QUOTE_FONT_SIZE = "clamp(1rem, 1.3vw, 1.18rem)";
 /* Retired with the bordered-callout treatment of the opening quote. */
@@ -92,46 +216,15 @@ const CONTACT_TITLE_SIZE = {
   max: "2.85rem",
 } as const;
 
-function aboutPageLabelBlock(source = css) {
-  return source.match(/\.page-head--label \.eyebrow\s*\{[^}]+\}/)?.[0] ?? "";
-}
-
-function parseAboutPageLabelSize(source: string) {
-  const block = aboutPageLabelBlock(source);
-  if (!block.trim()) {
-    throw new Error("About page label rule is required");
-  }
-  const match = block.match(/font-size:\s*([^;]+);/);
-  if (!match?.[1]?.trim()) {
-    throw new Error("About page label font-size is required");
-  }
-  const value = match[1].trim();
-  if (!value.endsWith("rem")) {
-    throw new Error("About page label must be a rem length");
-  }
-  const rem = Number.parseFloat(value);
-  if (!Number.isFinite(rem)) {
-    throw new Error("About page label must be a rem length");
-  }
-  if (rem === RETIRED_ABOUT_LABEL_REM) {
-    throw new Error("Doubled gold About label is not published");
-  }
-  if (rem !== ABOUT_LABEL_REM) {
-    throw new Error(
-      `About page label must be ${ABOUT_LABEL_REM}rem (the eyebrow scale)`,
-    );
-  }
-  return value;
-}
-
 function verifyAboutPageLabel() {
   const eyebrow = css.match(/^\.eyebrow\s*\{[^}]+\}/m)?.[0] ?? "";
-  const block = aboutPageLabelBlock();
   const head = css.match(/\.page-head--label\s*\{[^}]+\}/)?.[0] ?? "";
+  // The sitewide eyebrow scale still stands; the About page just no longer
+  // has one of its own.
   expect(eyebrow).toContain(`font-size: ${EYEBROW_SIZE_REM}rem`);
-  expect(parseAboutPageLabelSize(css)).toBe(`${ABOUT_LABEL_REM}rem`);
-  expect(block).toContain("color: var(--sky)");
-  expect(block).not.toContain("color: var(--gold)");
+  // Retired with the page-name eyebrows. The rule styled an element that no
+  // longer exists, so it would have been dead CSS guarded by a live test.
+  expect(css).not.toContain(RETIRED_ABOUT_LABEL_RULE);
   // The navy rule under the header boxed the page in like a form.
   expect(head).toContain("border-bottom: 0");
   expect(head).not.toContain("border-bottom: 1px solid var(--navy)");
@@ -290,6 +383,65 @@ function heroNameBlock() {
 
 function heroWatermarkBlock() {
   return css.match(/\.hero__watermark\s*\{[^}]+\}/)?.[0] ?? "";
+}
+
+/**
+ * Brace-matched slice starting at `marker`. The `[^}]+` blocks used
+ * everywhere else in this file stop at the first nested rule, which is no use
+ * for an at-rule that wraps others.
+ */
+function blockAfter(marker: string): string {
+  const start = css.indexOf(marker);
+  if (start === -1) return "";
+  const open = css.indexOf("{", start);
+  if (open === -1) return "";
+
+  let depth = 0;
+  for (let index = open; index < css.length; index += 1) {
+    if (css[index] === "{") depth += 1;
+    else if (css[index] === "}") {
+      depth -= 1;
+      if (depth === 0) return css.slice(start, index + 1);
+    }
+  }
+  return "";
+}
+
+function heroEntranceBlock() {
+  return blockAfter(HERO_ENTRANCE_GUARD);
+}
+
+function heroStageRule(stage: string, block = heroEntranceBlock()) {
+  return (
+    block.match(
+      new RegExp(`\\[data-hero-stage="${stage}"\\][^{]*\\{[^}]+\\}`),
+    )?.[0] ?? ""
+  );
+}
+
+/** Every stage rule must carry exactly the timing lib/motion publishes. */
+function verifyStageTiming(
+  stage: "name" | "portrait" | "copy" | "outlets" | "cta",
+  keyframe: string,
+  rule = heroStageRule(stage),
+  // `both` holds the from-state through the delay; without it a hero element
+  // paints in full first and then jumps back to start. The CTA is the one
+  // exception — see the "cta" test.
+  fill: "both" | "backwards" = "both",
+) {
+  const step = heroEntranceStep(stage);
+  expect(rule).toContain(keyframe);
+  expect(rule).toContain(`${step.durationMs}ms`);
+  expect(rule).toContain(`${step.delayMs}ms`);
+  expect(rule).toContain(fill);
+}
+
+function heroCtaRule(selector: string) {
+  return (
+    heroEntranceBlock().match(
+      new RegExp(`body:has\\(\\.home\\)\\s+${selector}\\s*\\{[^}]+\\}`),
+    )?.[0] ?? ""
+  );
 }
 
 function heroPortraitBlock() {
@@ -495,6 +647,74 @@ function parseHeroFoldChrome(source: string) {
   return value;
 }
 
+function parseAboutFoldChrome(source: string) {
+  const match = source.match(/--about-fold-chrome:\s*([^;]+);/);
+  if (!match?.[1]?.trim()) {
+    throw new Error("About fold chrome is required");
+  }
+
+  const value = match[1].trim();
+  const rem = Number.parseFloat(value);
+  if (!value.endsWith("rem") || !Number.isFinite(rem)) {
+    throw new Error("About fold chrome must be a rem length");
+  }
+  // Below this the cap subtracts less than the header actually occupies and
+  // the showcase still overflows a short window.
+  if (rem < ABOUT_FOLD_CHROME_MIN) {
+    throw new Error(
+      `About fold chrome cannot be below ${ABOUT_FOLD_CHROME_MIN}rem`,
+    );
+  }
+  // Above it the cap starts clipping a full-height laptop that has no need
+  // of it, which is the one case the crop was never meant to touch.
+  if (rem > ABOUT_FOLD_CHROME_MAX) {
+    throw new Error(
+      `About fold chrome cannot be above ${ABOUT_FOLD_CHROME_MAX}rem`,
+    );
+  }
+
+  return value;
+}
+
+function verifyAboutHeaderFitsOneFrame() {
+  const headline = css.match(/\.about-headline\s*\{[^}]+\}/)?.[0] ?? "";
+  const head = css.match(/\.page-head--label\s*\{[^}]+\}/)?.[0] ?? "";
+  const deck =
+    css.match(/\.page-head--label \.about-bio__quote\s*\{[^}]+\}/)?.[0] ?? "";
+  const article = css.match(/article:has\(\.about-bio\)\s*\{[^}]+\}/)?.[0] ?? "";
+  const frame = css.match(/\.showcase__frame\s*\{[^}]+\}/)?.[0] ?? "";
+
+  // The one-liner is 54 characters. At 20ch it broke over three lines, and
+  // that third line is what pushed the showcase past the fold.
+  expect(headline).toContain(`max-width: ${ABOUT_HEADLINE_MEASURE}`);
+  expect(headline).not.toContain(`max-width: ${RETIRED_ABOUT_HEADLINE_MEASURE}`);
+  // Re-ragged rather than shrunk: the type scale is untouched.
+  expect(headline).toContain(`font-size: ${ABOUT_HEADLINE_FONT_SIZE}`);
+
+  // Spacing tightened around it, each away from its retired value.
+  expect(head).toContain(`margin-bottom: ${ABOUT_HEAD_MARGIN}`);
+  expect(head).not.toContain(`margin-bottom: ${RETIRED_ABOUT_HEAD_MARGIN}`);
+  // The eyebrow that used to sit above the one-liner, and the space it took,
+  // are both gone; the fold budget below was retuned for its absence.
+  expect(css).not.toContain(RETIRED_ABOUT_LABEL_RULE);
+  expect(deck).toContain(`margin: ${ABOUT_DECK_MARGIN} 0 0`);
+  expect(deck).not.toContain(`margin: ${RETIRED_ABOUT_DECK_MARGIN} 0 0`);
+  expect(article).toContain(`padding-top: ${ABOUT_ARTICLE_PADDING}`);
+  expect(article).not.toContain(
+    `padding-top: ${RETIRED_ABOUT_ARTICLE_PADDING}`,
+  );
+
+  // The image height follows the container width, not the viewport, so on a
+  // short window the header alone cannot keep it above the fold. The frame
+  // yields instead; overflow: hidden is what makes the cap a crop.
+  expect(parseAboutFoldChrome(css)).toBe(ABOUT_FOLD_CHROME);
+  expect(css).not.toContain(`--about-fold-chrome: ${RETIRED_ABOUT_FOLD_CHROME}`);
+  expect(frame).toContain(
+    "max-height: calc(100svh - var(--about-fold-chrome))",
+  );
+  expect(frame).toContain("overflow: hidden");
+}
+
 function verifyHeroFitsMediaBarOnLoad() {
   const hero = heroBlock();
   const photo = css.match(/\.hero__photo\s*\{[^}]+\}/)?.[0] ?? "";
@@ -593,6 +813,34 @@ describe("visual identity in CSS", () => {
     expect(typeScale).toBe("clamp(1.75rem, 3vw, 2.5rem)");
     expect(logo).toContain(`height: ${typeScale}`);
     expect(logo).toContain("width: auto");
+  });
+
+  it("grows the shell with the viewport instead of stranding wide displays", () => {
+    const root = css.match(/^:root\s*\{[^}]+\}/m)?.[0] ?? "";
+    const shell =
+      css.match(/\.site-footer__inner\s*\{[^}]+\}/)?.[0] ?? "";
+    const container = parseClamp(root, "--container");
+
+    expect(container.min).toBe(SHELL_CONTAINER.min);
+    expect(container.preferred).toBe(SHELL_CONTAINER.preferred);
+    expect(container.max).toBe(SHELL_CONTAINER.max);
+    expect(root).not.toContain(RETIRED_FIXED_SHELL_CONTAINER);
+    // Masthead, main, and footer stay on one shell so their edges line up.
+    expect(shell).toContain(SHELL_WIDTH);
+    expect(shell).toContain("margin-inline: auto");
+  });
+
+  it("scales the rem system on large displays without overriding the reader", () => {
+    const html = css.match(/^html\s*\{[^}]+\}/m)?.[0] ?? "";
+    const scale = parseClamp(html, "font-size");
+
+    expect(scale.min).toBe(ROOT_FONT_SCALE.min);
+    expect(scale.preferred).toBe(ROOT_FONT_SCALE.preferred);
+    expect(scale.max).toBe(ROOT_FONT_SCALE.max);
+    // The floor is 1rem, so nothing below the 1600px crossover moves.
+    expect(html).not.toMatch(RETIRED_PX_ROOT_FONT_SIZE);
+    // Breakpoints stay in px, so the root step moves no media query.
+    expect(css).not.toMatch(/@media[^{]*\(\s*(min|max)-width:\s*[\d.]+rem/);
   });
 
   it("centers desktop navigation between the seal and the header control", () => {
@@ -786,6 +1034,247 @@ describe("visual identity in CSS", () => {
     expect(fontSize.min).toBe(HERO_NAME_FONT_SIZE.min);
     expect(fontSize.preferred).toBe(HERO_NAME_FONT_SIZE.preferred);
     expect(fontSize.max).toBe(HERO_NAME_FONT_SIZE.max);
+    expect(name).not.toContain(RETIRED_VIEWPORT_HERO_NAME_SIZE);
+  });
+
+  it("scales the hero headline against the shell rather than the viewport", () => {
+    const hero = heroBlock();
+    const watermark = parseClamp(heroWatermarkBlock(), "font-size");
+    // Without the query container both cqw values would resolve against the
+    // small viewport default and the headline would collapse to its minimum.
+    expect(hero).toContain(HERO_QUERY_CONTAINER);
+    expect(watermark.min).toBe(HERO_WATERMARK_FONT_SIZE.min);
+    expect(watermark.preferred).toBe(HERO_WATERMARK_FONT_SIZE.preferred);
+    expect(watermark.max).toBe(HERO_WATERMARK_FONT_SIZE.max);
+    expect(heroWatermarkBlock()).not.toContain(
+      RETIRED_VIEWPORT_HERO_WATERMARK_SIZE,
+    );
+  });
+
+  it("fades the hero name up left to right", () => {
+    const rule = heroStageRule(HERO_STAGE_NAME);
+    const keyframes = blockAfter(HERO_NAME_WIPE_KEYFRAMES);
+    const type = css.match(/\.hero__name-type\s*\{[^}]+\}/)?.[0] ?? "";
+
+    verifyStageTiming(HERO_STAGE_NAME, "hero-name-wipe", rule);
+    expect(rule).toContain(HERO_NAME_MASK_SIZE);
+    expect(rule).toContain("mask-repeat: no-repeat");
+    // Right to left across a mask three times the box: one soft edge crosses
+    // the letters, and it ends on the mask's solid head at full strength.
+    expect(keyframes).toContain(HERO_NAME_WIPE_FROM);
+    expect(keyframes).toContain(HERO_NAME_WIPE_TO);
+    // Safari still needs the prefix for both the mask and its position.
+    expect(rule).toContain("-webkit-mask-image");
+    expect(keyframes).toContain(`-webkit-${HERO_NAME_WIPE_FROM}`);
+    // Percentages resolve against the name's own box, which is what the
+    // inline-block buys; the h1 spans the whole grid row.
+    expect(type).toContain("display: inline-block");
+    expect(type).toContain("max-width: 100%");
+  });
+
+  it("keeps the retired typewriter and its caret out of the stylesheet", () => {
+    expect(css).not.toContain(RETIRED_HERO_TYPEWRITER);
+    expect(css).not.toContain(RETIRED_HERO_CARET);
+    // A stepped timing function anywhere in the name rule would put the
+    // character-at-a-time reveal back.
+    expect(heroStageRule(HERO_STAGE_NAME)).not.toContain("steps(");
+  });
+
+  it("runs the portrait, then the copy and the outlet strip, after the name", () => {
+    verifyStageTiming(HERO_STAGE_PORTRAIT, "hero-portrait-in");
+    verifyStageTiming(HERO_STAGE_COPY, "hero-rise");
+    verifyStageTiming(HERO_STAGE_OUTLETS, "hero-rise");
+
+    const order = [
+      HERO_STAGE_NAME,
+      HERO_STAGE_PORTRAIT,
+      HERO_STAGE_COPY,
+      HERO_STAGE_OUTLETS,
+    ].map((stage) => heroEntranceBlock().indexOf(`data-hero-stage="${stage}"`));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    // The portrait carries scale the copy does not, so the head settles into
+    // the headline rather than sliding up into it.
+    expect(blockAfter("@keyframes hero-portrait-in")).toContain("scale(0.97)");
+    expect(blockAfter("@keyframes hero-rise")).not.toContain("scale(");
+  });
+
+  it("closes the entrance by sweeping the masthead CTA once", () => {
+    const sweep = heroCtaRule("\\.header-cta::before");
+    const flare = heroCtaRule("\\.header-cta");
+    const sweepFrames = blockAfter("@keyframes hero-cta-sweep");
+    const flareFrames = blockAfter("@keyframes hero-cta-flare");
+
+    verifyStageTiming(HERO_STAGE_CTA, "hero-cta-sweep", sweep, "backwards");
+    verifyStageTiming(HERO_STAGE_CTA, "hero-cta-flare", flare, "backwards");
+
+    // Never `both` or `forwards`: the fill has to release so ::before drops
+    // back to the base scaleX(0) and hover owns the gold again. A forwards
+    // fill would pin the button in its swept state for good.
+    [sweep, flare].forEach((rule) => {
+      expect(rule).not.toContain("forwards");
+      expect(rule).not.toMatch(/\bboth\b/);
+    });
+
+    // Same easing the hover transition drives the same gold fill with, so
+    // the scripted sweep and the hover sweep read as one gesture.
+    const hoverFill =
+      css.match(
+        /\.button-link:not\(\.button-link--ghost\)::before\s*\{[^}]+\}/,
+      )?.[0] ?? "";
+    expect(hoverFill).toContain("transition: transform 400ms ease-in-out");
+    [sweep, flare].forEach((rule) => {
+      expect(rule).toContain("ease-in-out");
+    });
+
+    // The band travels: it grows from the left, then retreats to the right,
+    // rather than appearing and leaving the way it came.
+    expect(sweepFrames).toContain("transform-origin: left center");
+    expect(sweepFrames).toContain("transform-origin: right center");
+    expect(sweepFrames.trim().endsWith("}")).toBe(true);
+
+    // The CTA is live from first paint. A highlight must not dim it, so the
+    // flare touches border, label, and shadow and leaves opacity alone.
+    expect(flareFrames).toContain("border-color: var(--gold)");
+    expect(flareFrames).not.toContain("opacity");
+    expect(flare).not.toContain("opacity");
+    // The label turns over with the fill, as it does on hover — white on
+    // gold is a contrast the button should never sit at.
+    const hover =
+      css.match(
+        /\.button-link:not\(\.button-link--ghost\):hover,[^{]+\{[^}]+\}/,
+      )?.[0] ?? "";
+    expect(hover).toContain("color: var(--navy)");
+    expect(flareFrames).toContain("color: var(--navy)");
+    expect(flareFrames).toContain("color: var(--white)");
+  });
+
+  it("scopes the CTA highlight to the home page it closes", () => {
+    // The masthead is chrome on every route, so an unscoped rule would flash
+    // gold on /about, /press, and the rest.
+    const ctaRules = heroEntranceBlock().match(/[^{}]*\.header-cta[^{]*\{/g) ?? [];
+    expect(ctaRules).toHaveLength(2);
+    ctaRules.forEach((selector) => {
+      expect(selector).toContain("body:has(.home)");
+    });
+  });
+
+  it("fades the home bands up as they scroll into view", () => {
+    const guard = blockAfter(HERO_ENTRANCE_GUARD);
+    const reveal = css.slice(css.indexOf(SCROLL_REVEAL_GUARD));
+    const scope = `body:has\\(\\[${SCROLL_REVEAL_SCOPE_ATTRIBUTE}\\]\\)`;
+    const hidden =
+      reveal.match(
+        new RegExp(`${scope} \\[data-reveal\\]:not\\(\\.is-revealed\\)\\s*\\{[^}]+\\}`),
+      )?.[0] ?? "";
+    const moving =
+      reveal.match(new RegExp(`${scope} \\[data-reveal\\]\\s*\\{[^}]+\\}`))?.[0] ??
+      "";
+    const nested =
+      reveal.match(
+        new RegExp(
+          `${scope} \\[data-reveal\\] \\[data-reveal\\]:not\\(\\.is-revealed\\)\\s*\\{[^}]+\\}`,
+        ),
+      )?.[0] ?? "";
+
+    // Fade plus a short rise, released the moment .is-revealed lands.
+    expect(hidden).toContain("opacity: 0");
+    expect(hidden).toContain(REVEAL_RISE);
+    expect(moving).toContain("opacity 700ms ease-out");
+    expect(moving).toContain("transform 700ms");
+    // A SectionIntro inside a revealing band fades in place rather than
+    // travelling its own rise on top of its parent's.
+    expect(nested).toContain("transform: none");
+    // The revealed default has to stay: it is what a reduced-motion reader
+    // and every non-home page sit at.
+    // Anchored at column 0: the scoped rules are all indented or prefixed.
+    const base = css.match(/^\[data-reveal\]\s*\{[^}]+\}/m)?.[0] ?? "";
+    expect(base).toContain("opacity: 1");
+    expect(base).toContain("transform: none");
+    // Not the hero's entrance block — the reveal is its own state machine.
+    expect(guard).not.toContain("is-revealed");
+  });
+
+  it("scopes the scroll reveal to pages that opt in", () => {
+    // SectionIntro carries data-reveal on every page. An unscoped hidden
+    // state would blank /press, /media-kit, and the legal pages until an
+    // observer that may never see them says otherwise.
+    const reveal = css.slice(css.indexOf(SCROLL_REVEAL_GUARD));
+    const hiding = reveal.match(/[^{}]*\[data-reveal\][^{]*\{[^}]*opacity: 0/g) ?? [];
+    expect(hiding.length).toBeGreaterThan(0);
+    hiding.forEach((rule) => {
+      expect(rule).toContain(`body:has([${SCROLL_REVEAL_SCOPE_ATTRIBUTE}])`);
+    });
+    // Retired: keyed on the home class, which no other page could join.
+    expect(reveal).not.toContain("body:has(.home) [data-reveal]");
+  });
+
+  it("stages the About entrance from the label to the stat chips", () => {
+    const guard = blockAfter(ABOUT_ENTRANCE_GUARD);
+    const rule = (stage: string) =>
+      guard.match(
+        new RegExp(`\\[data-about-stage="${stage}"\\][^{]*\\{[^}]+\\}`),
+      )?.[0] ?? "";
+
+    // Every stage carries exactly the timing lib/motion publishes.
+    ABOUT_ENTRANCE_STAGES.forEach((stage) => {
+      const step = aboutEntranceStep(stage);
+      const found = rule(stage);
+      expect(found).toContain(`${step.durationMs}ms`);
+      expect(found).toContain(`${step.delayMs}ms`);
+      expect(found).toContain("both");
+    });
+
+    // The frame fades while the photo inside it settles out of a zoom —
+    // two rules, so the card does not slide as one block.
+    expect(rule(ABOUT_STAGE_FRAME)).toContain("about-fade");
+    const photo =
+      guard.match(
+        /\[data-about-stage="frame"\] \.showcase__image\s*\{[^}]+\}/,
+      )?.[0] ?? "";
+    expect(photo).toContain("about-photo-settle");
+    // Anchored to the same edge as the 12/5 crop.
+    expect(photo).toContain("transform-origin: center top");
+    expect(blockAfter("@keyframes about-photo-settle")).toContain(
+      `scale(${ABOUT_PHOTO_ZOOM})`,
+    );
+
+    // Chips stagger by nth-child, so the delays stay out of the markup.
+    for (let index = 1; index < ABOUT_STAT_COUNT; index += 1) {
+      const chip =
+        guard.match(
+          new RegExp(
+            `\\[data-about-stage="stats"\\] > :nth-child\\(${index + 1}\\)\\s*\\{[^}]+\\}`,
+          ),
+        )?.[0] ?? "";
+      expect(chip).toContain(`animation-delay: ${aboutStatDelayMs(index)}ms`);
+    }
+  });
+
+  it("keeps the About entrance clear of the hero's unscoped stage rules", () => {
+    const guard = blockAfter(ABOUT_ENTRANCE_GUARD);
+    // Declarations only: the block's own comment names the hero attribute to
+    // explain why it is not used, which is not the same as using it.
+    const declarations = guard.replace(/\/\*[\s\S]*?\*\//g, "");
+    // Sharing data-hero-stage would pull the home animations onto About.
+    expect(declarations).not.toContain("data-hero-stage");
+    expect(guard).toContain(ABOUT_ENTRANCE_ATTRIBUTE);
+    // Nothing hidden outside the reduced-motion guard.
+    const all = css.match(/\[data-about-stage=/g) ?? [];
+    const guarded = guard.match(/\[data-about-stage=/g) ?? [];
+    expect(all.length).toBeGreaterThan(0);
+    expect(guarded.length).toBe(all.length);
+  });
+
+  it("hides nothing outside the reduced-motion guard", () => {
+    const all = css.match(/\[data-hero-stage=/g) ?? [];
+    const guarded = heroEntranceBlock().match(/\[data-hero-stage=/g) ?? [];
+
+    // Every from-state lives inside the guard. A reduced-motion reader, or an
+    // engine that skips these rules, gets the finished hero — never a blank
+    // one waiting on an animation that will not run.
+    expect(all.length).toBeGreaterThan(0);
+    expect(guarded.length).toBe(all.length);
+    expect(heroEntranceBlock()).not.toContain("(max-width");
   });
 
   it("keeps the hero body copy at regular weight behind the bold name", () => {
@@ -1143,28 +1632,191 @@ describe("visual identity in CSS", () => {
     verifyAboutPageLabel();
   });
 
-  it("rejects a missing, mis-scaled, or retired gold About label", () => {
-    expect(() => parseAboutPageLabelSize(".eyebrow { font-size: 0.75rem; }")).toThrow(
-      "About page label rule is required",
+  it("fits the About header, its deck, and the showcase in one frame", () => {
+    verifyAboutHeaderFitsOneFrame();
+  });
+
+  it("rejects a missing or out-of-range About fold chrome", () => {
+    expect(() => parseAboutFoldChrome(":root { }")).toThrow(
+      "About fold chrome is required",
     );
     expect(() =>
-      parseAboutPageLabelSize(".page-head--label .eyebrow { color: var(--sky); }"),
-    ).toThrow("About page label font-size is required");
+      parseAboutFoldChrome(":root { --about-fold-chrome: 340px; }"),
+    ).toThrow("About fold chrome must be a rem length");
+    // Too small and a short window still overflows.
     expect(() =>
-      parseAboutPageLabelSize(
-        ".page-head--label .eyebrow { font-size: 0.75px; }",
+      parseAboutFoldChrome(
+        `:root { --about-fold-chrome: ${ABOUT_FOLD_CHROME_MIN - 0.25}rem; }`,
       ),
-    ).toThrow("About page label must be a rem length");
+    ).toThrow(`About fold chrome cannot be below ${ABOUT_FOLD_CHROME_MIN}rem`);
+    // Too large and it crops a full-height laptop that never needed it.
     expect(() =>
-      parseAboutPageLabelSize(
-        ".page-head--label .eyebrow { font-size: 1.5rem; }",
+      parseAboutFoldChrome(
+        `:root { --about-fold-chrome: ${ABOUT_FOLD_CHROME_MAX + 0.25}rem; }`,
       ),
-    ).toThrow("Doubled gold About label is not published");
-    expect(() =>
-      parseAboutPageLabelSize(
-        ".page-head--label .eyebrow { font-size: 1rem; }",
+    ).toThrow(`About fold chrome cannot be above ${ABOUT_FOLD_CHROME_MAX}rem`);
+    // Both bounds are inclusive.
+    expect(
+      parseAboutFoldChrome(
+        `:root { --about-fold-chrome: ${ABOUT_FOLD_CHROME_MIN}rem; }`,
       ),
-    ).toThrow("About page label must be 0.75rem (the eyebrow scale)");
+    ).toBe(`${ABOUT_FOLD_CHROME_MIN}rem`);
+    expect(
+      parseAboutFoldChrome(
+        `:root { --about-fold-chrome: ${ABOUT_FOLD_CHROME_MAX}rem; }`,
+      ),
+    ).toBe(`${ABOUT_FOLD_CHROME_MAX}rem`);
+  });
+
+  it("sets the page heads at the same scale as the About lead", () => {
+    const title = css.match(/\.page-head h1\s*\{[^}]+\}/)?.[0] ?? "";
+    const lede = css.match(/\.page-head__lede\s*\{[^}]+\}/)?.[0] ?? "";
+    const headline = css.match(/\.about-headline\s*\{[^}]+\}/)?.[0] ?? "";
+    const deck = css.match(/\.about-bio__quote p\s*\{[^}]+\}/)?.[0] ?? "";
+
+    // Asserted as an equality against the About page rather than as its own
+    // literal, because "the same scale" is the actual requirement: pinning
+    // two numbers separately lets them drift apart while both stay green.
+    const sizeOf = (block: string) =>
+      block.match(/font-size:\s*([^;]+);/)?.[1]?.trim();
+    expect(sizeOf(title)).toBe(sizeOf(headline));
+    expect(sizeOf(lede)).toBe(sizeOf(deck));
+    expect(sizeOf(title)).toBe(ABOUT_HEADLINE_FONT_SIZE);
+    expect(sizeOf(lede)).toBe(ABOUT_QUOTE_FONT_SIZE);
+
+    expect(title).not.toContain(RETIRED_PAGE_HEAD_TITLE_SIZE);
+    expect(lede).not.toContain(RETIRED_PAGE_HEAD_LEDE_SIZE);
+  });
+
+  it("leaves the legal pages on their own larger title scale", () => {
+    // Split from .page-head h1 deliberately, so the legal documents keep the
+    // heavier heading a standalone document wants.
+    const legal = css.match(/\.legal-page__header h1\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(legal).toContain(`font-size: ${RETIRED_PAGE_HEAD_TITLE_SIZE}`);
+  });
+
+  it("closes the gap between a page head and the content it introduces", () => {
+    const rule = css.match(/\.page-head \+ \.band\s*\{[^}]+\}/)?.[0] ?? "";
+    const wide = blockAfter("@media (min-width: 900px)");
+
+    expect(rule).toContain(`padding-top: ${PAGE_HEAD_BAND_PADDING}`);
+    // The 900px block still gives ordinary sections their 6rem; this rule
+    // only outranks it for the band directly under a head.
+    expect(wide).toContain(RETIRED_PAGE_HEAD_BAND_PADDING);
+    expect(rule).not.toContain(RETIRED_PAGE_HEAD_BAND_PADDING);
+  });
+
+  it("gives a band that opens its own section room from the lede", () => {
+    const labelled =
+      css.match(/\.page-head \+ \.band:has\(\.eyebrow\)\s*\{[^}]+\}/)?.[0] ?? "";
+
+    // Two different relationships, so two different gaps. A card grid is the
+    // lede's own content and sits close; a band that opens with a section
+    // label is a new section, and running it up against the lede makes the
+    // two read as one block.
+    expect(labelled).toContain(`padding-top: ${PAGE_HEAD_SECTION_PADDING}`);
+    expect(
+      Number.parseFloat(PAGE_HEAD_SECTION_PADDING),
+    ).toBeGreaterThan(Number.parseFloat(PAGE_HEAD_BAND_PADDING));
+    // Still under an ordinary mid-page section's 6rem.
+    expect(Number.parseFloat(PAGE_HEAD_SECTION_PADDING)).toBeLessThan(6);
+  });
+
+  it("stages every PageHead entrance in the About page's beats", () => {
+    const guard = blockAfter(PAGE_ENTRANCE_GUARD);
+    // `[^{]*` rather than `\s*`: the content stage is a selector list, so
+    // the brace does not follow its first selector directly.
+    const rule = (selector: string) =>
+      guard.match(
+        new RegExp(`\\[data-page-entrance\\] ${selector}[^{]*\\{[^}]+\\}`),
+      )?.[0] ?? "";
+
+    // Each stage carries exactly the timing lib/motion publishes, and those
+    // are the About entrance's opening beats unchanged.
+    const stages: Array<[PageEntranceStage, string]> = [
+      [PAGE_STAGE_HEADLINE, "\\.page-head h1"],
+      [PAGE_STAGE_DECK, "\\.page-head__lede"],
+      [PAGE_STAGE_CONTENT, "\\.page-head \\+ \\.band"],
+    ];
+    // Every page's content block shares that one stage, so none of them is
+    // left sitting at full opacity while the head above it animates.
+    const contentRule = rule("\\.page-head \\+ \\.band");
+    for (const selector of [
+      ".page-head > :not(h1):not(.eyebrow):not(.page-head__lede)",
+      ".contact-routing",
+      "> .inquiry-form",
+    ]) {
+      expect(contentRule).toContain(selector);
+    }
+    // The media kit's request dialog embeds its own copy of the contact
+    // form. Matching .inquiry-form loosely would animate that hidden copy on
+    // every media kit load, so the form is taken as a direct child only.
+    expect(contentRule).not.toMatch(/\[data-page-entrance\] \.inquiry-form/);
+    for (const [stage, selector] of stages) {
+      const step = pageEntranceStep(stage);
+      const found = rule(selector);
+      expect(found).toContain(`${step.durationMs}ms`);
+      expect(found).toContain(`${step.delayMs}ms`);
+      expect(found).toContain("both");
+      expect(found).toContain("page-rise");
+    }
+    expect(pageEntranceStep(PAGE_STAGE_HEADLINE).delayMs).toBe(
+      aboutEntranceStep("headline").delayMs,
+    );
+    expect(pageEntranceStep(PAGE_STAGE_DECK).delayMs).toBe(
+      aboutEntranceStep("deck").delayMs,
+    );
+
+    // Cards arrive in turn, staggered by nth-child so the delays stay out of
+    // the markup.
+    for (let index = 1; index < PAGE_CARD_COUNT; index += 1) {
+      const card =
+        guard.match(
+          new RegExp(
+            `\\.card:nth-child\\(${index + 1}\\)\\s*\\{[^}]+\\}`,
+          ),
+        )?.[0] ?? "";
+      expect(card).toContain(`${pageCardDelayMs(index)}ms`);
+    }
+
+    // Retired: one fade on the panel, which could only move the whole thing
+    // as a block and had nothing to say about what was inside it.
+    expect(css).not.toContain(RETIRED_PANEL_ANIMATION);
+    // Nothing hidden outside the reduced-motion guard.
+    const all = css.match(/\[data-page-entrance\]/g) ?? [];
+    const guarded = guard.match(/\[data-page-entrance\]/g) ?? [];
+    expect(all.length).toBeGreaterThan(0);
+    expect(guarded.length).toBe(all.length);
+
+    // The tab labels themselves ease between states rather than snapping.
+    const link = css.match(/\.press-tabs__nav a\s*\{[^}]+\}/)?.[0] ?? "";
+    expect(link).toContain("color 220ms ease");
+  });
+
+  it("lifts the press tabs to the top of the page they navigate", () => {
+    const tabs = css.match(/\.press-tabs\s*\{[^}]+\}/)?.[0] ?? "";
+    // Keyed on border-bottom: the selector also appears in the shared flex
+    // rule it shares with the desktop and footer navs, which comes first.
+    const nav =
+      css.match(/\.press-tabs__nav\s*\{[^}]*border-bottom[^}]*\}/)?.[0] ?? "";
+
+    expect(tabs).toContain(`padding-top: ${PRESS_TABS_PADDING}`);
+    // The retired value is still what `article` uses, so this is asserted
+    // against the tabs rule rather than the whole stylesheet.
+    expect(tabs).not.toContain(RETIRED_PRESS_TABS_PADDING);
+    expect(nav).toContain(`margin: ${PRESS_TABS_NAV_MARGIN}`);
+    expect(nav).not.toContain(`margin: ${RETIRED_PRESS_TABS_NAV_MARGIN}`);
+  });
+
+  it("keeps the retired About page label out of the stylesheet", () => {
+    // The rule and its scale guard both went with the page-name eyebrows.
+    // Nothing on /about prints a label naming the page any more, so a rule
+    // styling one would be dead CSS with a live test standing over it.
+    expect(css).not.toContain(RETIRED_ABOUT_LABEL_RULE);
+    expect(css).not.toContain(ABOUT_LABEL_MARGIN);
+    expect(css).not.toContain(RETIRED_ABOUT_LABEL_MARGIN);
+    // The sitewide eyebrow is untouched: section labels still use it.
+    expect(css).toMatch(/^\.eyebrow\s*\{/m);
   });
 
   it("formats the About bio with paragraph rhythm and a left quote", () => {

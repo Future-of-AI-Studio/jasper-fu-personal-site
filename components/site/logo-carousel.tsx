@@ -13,6 +13,10 @@ import {
   logoCarouselTransformStyle,
   resolveLogoOffsetRatio,
 } from "../../lib/logo-carousel";
+import {
+  HERO_STAGE_OUTLETS,
+  parseHeroEntranceStage,
+} from "../../lib/motion/hero-entrance";
 
 /**
  * Horizontal motion stays the CSS `media-bar-marquee` keyframe (see
@@ -101,7 +105,12 @@ export function LogoCarousel() {
   useLogoCarouselCurve(barRef);
 
   return (
-    <div aria-label="Media recognition" className="media-bar" ref={barRef}>
+    <div
+      aria-label="Media recognition"
+      className="media-bar"
+      data-hero-stage={parseHeroEntranceStage(HERO_STAGE_OUTLETS)}
+      ref={barRef}
+    >
       <div aria-hidden="true" className="media-bar__edge media-bar__edge--left" />
       <div className="media-bar__track">
         {mediaBarLoopCopyIndexes().map((copy) => (

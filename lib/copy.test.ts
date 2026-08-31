@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 
 import { identity } from "./identity";
 import {
@@ -28,11 +28,24 @@ import {
   assertQuickFact,
   assertViewAllCoverageCta,
   assertWatchInterviewCta,
+  assertCareerTimelineCleared,
+  assertCredentialsCleared,
   careerTimeline,
+  companyStanding,
+  COMPANY_STANDING_MAX,
+  COMPANY_STANDING_MIN,
+  CREDENTIALS_DRAFT,
+  CREDENTIALS_DRAFT_APPROVED,
+  parseCompanyStanding,
+  resolveCredentials,
+  CAREER_TIMELINE_DRAFT,
+  CAREER_TIMELINE_DRAFT_APPROVED,
   credentials,
   factSheet,
   parseAboutFaqs,
   parseCareerTimeline,
+  parsePublishableCareerTimeline,
+  resolveCareerTimeline,
   parseCredentials,
   parseFactSheet,
   parsePullQuotes,
@@ -487,29 +500,69 @@ describe("parseFactSheet", () => {
 });
 
 function timelineItems(count: number) {
-  return Array.from({ length: Math.max(count, 0) }, (_, index) => `Item ${index}`);
+  return Array.from({ length: Math.max(count, 0) }, (_, index) => ({
+    detail: `Item ${index}`,
+  }));
+}
+
+/** Credentials are still a flat list; only the timeline gained a period. */
+function credentialItems(count: number) {
+  return Array.from(
+    { length: Math.max(count, 0) },
+    (_, index) => `Item ${index}`,
+  );
 }
 
 describe("assertCareerTimelineItem", () => {
   it("returns a published item unchanged", () => {
-    expect(assertCareerTimelineItem("PwC, digital transformation consulting")).toBe(
-      "PwC, digital transformation consulting",
-    );
+    expect(
+      assertCareerTimelineItem({
+        detail: "PwC, digital transformation consulting",
+      }),
+    ).toEqual({ detail: "PwC, digital transformation consulting" });
   });
 
-  it("trims surrounding whitespace", () => {
-    expect(assertCareerTimelineItem("  PwC  ")).toBe("PwC");
+  it("keeps a period alongside its detail", () => {
+    expect(
+      assertCareerTimelineItem({ period: "2015-2021", detail: "PwC" }),
+    ).toEqual({ period: "2015-2021", detail: "PwC" });
+  });
+
+  it("trims surrounding whitespace from both fields", () => {
+    expect(
+      assertCareerTimelineItem({ period: "  2015-2021  ", detail: "  PwC  " }),
+    ).toEqual({ period: "2015-2021", detail: "PwC" });
   });
 
   it("rejects an empty item", () => {
-    expect(() => assertCareerTimelineItem("  ")).toThrow(
+    expect(() => assertCareerTimelineItem({ detail: "  " })).toThrow(
       "Career timeline item is required",
     );
   });
 
   it("rejects a placeholder item", () => {
-    expect(() => assertCareerTimelineItem("placeholder")).toThrow(
+    expect(() => assertCareerTimelineItem({ detail: "placeholder" })).toThrow(
       "Career timeline item is a placeholder",
+    );
+  });
+
+  it("rejects an empty period", () => {
+    // An empty period would render a blank column rather than the full-width
+    // row that an entry without a date is meant to get.
+    expect(() =>
+      assertCareerTimelineItem({ period: "   ", detail: "PwC" }),
+    ).toThrow("Career timeline period cannot be empty");
+  });
+
+  it("rejects a placeholder period", () => {
+    expect(() =>
+      assertCareerTimelineItem({ period: "placeholder", detail: "PwC" }),
+    ).toThrow("Career timeline period is a placeholder");
+  });
+
+  it("leaves an absent period absent", () => {
+    expect(assertCareerTimelineItem({ detail: "PwC" })).not.toHaveProperty(
+      "period",
     );
   });
 });
@@ -545,8 +598,309 @@ describe("parseCareerTimeline", () => {
 
   it("rejects duplicated items", () => {
     expect(() =>
-      parseCareerTimeline(["Same item", "Same item"]),
+      parseCareerTimeline([{ detail: "Same item" }, { detail: "Same item" }]),
     ).toThrow("Career timeline items must each be unique");
+  });
+
+  it("rejects a timeline where only some entries carry a period", () => {
+    // Mixed, the dated rows indent past an empty column and the others do
+    // not, which reads as a layout fault rather than a list.
+    expect(() =>
+      parseCareerTimeline([
+        { period: "2015-2021", detail: "PwC" },
+        { detail: "Coinsub" },
+      ]),
+    ).toThrow("Career timeline periods must be on every item or none");
+  });
+
+  it("accepts a timeline dated all the way through, or not at all", () => {
+    expect(
+      parseCareerTimeline([
+        { period: "2015-2021", detail: "PwC" },
+        { period: "2023-present", detail: "Coinsub" },
+      ]),
+    ).toHaveLength(2);
+    expect(
+      parseCareerTimeline([{ detail: "PwC" }, { detail: "Coinsub" }]),
+    ).toHaveLength(2);
+  });
+});
+
+/** Every word of a timeline, periods included, as one searchable string. */
+function timelineText(entries: readonly { period?: string; detail: string }[]) {
+  return entries.map((e) => `${e.period ?? ""} ${e.detail}`).join("\n");
+}
+const draftText = () => timelineText(CAREER_TIMELINE_DRAFT);
+const publishedText = () => timelineText(careerTimeline);
+
+describe("career timeline draft", () => {
+  it("is well formed and ready to swap in once confirmed", () => {
+    // Shape is checked now so clearance is the only thing left to do.
+    expect(parseCareerTimeline(CAREER_TIMELINE_DRAFT)).toEqual([
+      ...CAREER_TIMELINE_DRAFT,
+    ]);
+    expect(CAREER_TIMELINE_DRAFT.length).toBeLessThanOrEqual(
+      CAREER_TIMELINE_MAX,
+    );
+  });
+
+  it("is not published", () => {
+    // Sourced from LinkedIn, which is self-reported. Flipping this without
+    // Jasper confirming the titles and dates is the thing to prevent.
+    expect(CAREER_TIMELINE_DRAFT_APPROVED).toBe(false);
+    expect(careerTimeline).not.toEqual([...CAREER_TIMELINE_DRAFT]);
+    for (const line of CAREER_TIMELINE_DRAFT) {
+      expect(careerTimeline).not.toContain(line);
+    }
+  });
+
+  it("corrects the two titles the published timeline gets wrong", () => {
+    // Community Gaming was Director of Product *Management*; PwC was
+    // Project Lead. These are inaccuracies, not additions.
+    expect(draftText()).toContain("Director of Product Management");
+    expect(draftText()).toContain("project lead");
+    expect(publishedText()).toContain("Director of Product at");
+  });
+
+  it("carries the date as its own field, out of the sentence", () => {
+    // The period is what /about sets as a label in its own column, so the
+    // dates line up instead of ragging with the prose.
+    for (const entry of CAREER_TIMELINE_DRAFT) {
+      expect(entry.period).toBeTruthy();
+      expect(entry.detail).not.toMatch(/\d{4}/);
+    }
+    expect(CAREER_TIMELINE_DRAFT.map((entry) => entry.period)).toEqual([
+      "2015-2021",
+      "2019-2022",
+      "2022-2023",
+      "2023-present",
+      "Ongoing",
+    ]);
+  });
+
+  it("uses no em-dashes anywhere in the copy", () => {
+    // Escaped rather than literal, so the assertion cannot be silently
+    // defused by an editor or a tool rewriting the file's encoding.
+    expect(draftText()).not.toContain("—");
+    expect(publishedText()).not.toContain("—");
+  });
+
+  it("leaves the Walapay investor role out pending a disclosure decision", () => {
+    // Walapay moves fiat and stablecoins, adjacent to Coinsub's own market,
+    // so on a press site it reads as a disclosure, not a career step.
+    expect(draftText()).not.toContain("Walapay");
+    expect(publishedText()).not.toContain("Walapay");
+  });
+
+  it("refuses to publish the draft while it is unconfirmed", () => {
+    expect(() =>
+      parsePublishableCareerTimeline(CAREER_TIMELINE_DRAFT, false),
+    ).toThrow("Career timeline draft is not cleared for publication");
+  });
+
+  it("publishes the draft once it is confirmed", () => {
+    expect(parsePublishableCareerTimeline(CAREER_TIMELINE_DRAFT, true)).toEqual(
+      [...CAREER_TIMELINE_DRAFT],
+    );
+  });
+
+  it("still enforces shape ahead of clearance", () => {
+    // An approved but malformed timeline must not slip past on the flag.
+    expect(() => parsePublishableCareerTimeline([], true)).toThrow(
+      `Career timeline needs at least ${CAREER_TIMELINE_MIN} items`,
+    );
+  });
+});
+
+describe("resolveCareerTimeline", () => {
+  it("shows the draft on the dev server so it can be read in place", () => {
+    expect(resolveCareerTimeline(true, false)).toEqual([
+      ...CAREER_TIMELINE_DRAFT,
+    ]);
+  });
+
+  it("resolves to the published timeline anywhere that is not the dev server", () => {
+    // next build runs as production, so a build, and any deploy from it,
+    // bakes in the confirmed copy whatever the dev server is showing.
+    expect(resolveCareerTimeline(false, false)).toEqual([...careerTimeline]);
+  });
+
+  it("keeps the test environment on published copy", () => {
+    // Keyed on development, not on "not production": the absence assertions
+    // in app/public-routes.test.tsx are what prove unconfirmed employment
+    // claims cannot ship, and they only mean something if tests render the
+    // published timeline.
+    expect(process.env.NODE_ENV).not.toBe("development");
+    expect(resolveCareerTimeline(process.env.NODE_ENV === "development")).toEqual(
+      [...careerTimeline],
+    );
+  });
+
+  it("serves the draft everywhere once it is confirmed", () => {
+    expect(resolveCareerTimeline(false, true)).toEqual([
+      ...CAREER_TIMELINE_DRAFT,
+    ]);
+    expect(resolveCareerTimeline(true, true)).toEqual([
+      ...CAREER_TIMELINE_DRAFT,
+    ]);
+  });
+
+  it("defaults to the published clearance flag", () => {
+    expect(resolveCareerTimeline(false)).toEqual([...careerTimeline]);
+  });
+
+  it("still refuses a draft line that reached the published constant", () => {
+    // Previewing locally must not disarm the contamination guard.
+    const leaked = CAREER_TIMELINE_DRAFT[0]!;
+    expect(() => assertCareerTimelineCleared([leaked], false)).toThrow(
+      "is awaiting confirmation",
+    );
+  });
+});
+
+describe("assertCareerTimelineCleared", () => {
+  it("passes the published timeline as it stands", () => {
+    expect(assertCareerTimelineCleared(careerTimeline)).toEqual(careerTimeline);
+  });
+
+  it("catches a draft sentence pasted into the published timeline", () => {
+    // The copy/paste route around the flag, which is how unreviewed copy
+    // usually ships.
+    const leaked = CAREER_TIMELINE_DRAFT[0]!.detail;
+    expect(() =>
+      assertCareerTimelineCleared(
+        [
+          { detail: leaked },
+          { detail: "PwC, digital transformation consulting" },
+        ],
+        false,
+      ),
+    ).toThrow(`Career timeline item "${leaked}" is awaiting confirmation`);
+  });
+
+  it("catches a leaked sentence even with stray whitespace", () => {
+    const leaked = CAREER_TIMELINE_DRAFT[1]!.detail;
+    expect(() =>
+      assertCareerTimelineCleared([{ detail: `  ${leaked}  ` }], false),
+    ).toThrow(`Career timeline item "${leaked}" is awaiting confirmation`);
+  });
+
+  it("catches an unconfirmed date on a sentence that is already public", () => {
+    // Moving the period into its own field left the Coinsub sentence
+    // identical in both timelines, so matching on the sentence alone would
+    // wave its LinkedIn-sourced date straight through.
+    const coinsub = CAREER_TIMELINE_DRAFT[3]!;
+    expect(
+      careerTimeline.some((entry) => entry.detail === coinsub.detail),
+    ).toBe(true);
+    expect(() => assertCareerTimelineCleared([coinsub], false)).toThrow(
+      `Career timeline period for "${coinsub.detail}" is awaiting confirmation`,
+    );
+  });
+
+  it("does not flag a published sentence the draft happens to repeat", () => {
+    // The same sentence, minus the unconfirmed date, is already on the site.
+    const shared = careerTimeline.find((entry) =>
+      CAREER_TIMELINE_DRAFT.some((d) => d.detail === entry.detail),
+    );
+    expect(shared).toBeTruthy();
+    expect(assertCareerTimelineCleared([shared!], false)).toEqual([shared]);
+  });
+
+  it("lets every draft line through once confirmed", () => {
+    expect(assertCareerTimelineCleared(CAREER_TIMELINE_DRAFT, true)).toEqual(
+      CAREER_TIMELINE_DRAFT,
+    );
+  });
+
+  it("defaults to the published clearance flag", () => {
+    expect(() =>
+      assertCareerTimelineCleared([CAREER_TIMELINE_DRAFT[0]!]),
+    ).toThrow("is awaiting confirmation");
+  });
+});
+
+describe("credentials and company standing split", () => {
+  it("keeps Jasper's credentials apart from Coinsub's facts", () => {
+    // Two of the three old entries were about the company, not the person.
+    expect(credentials.join("\n")).toContain("Emory University");
+    expect(credentials.join("\n")).not.toContain("MSB-registered");
+    expect(companyStanding.join("\n")).toContain("MSB-registered");
+    expect(companyStanding.join("\n")).toContain("Middletown, Delaware");
+    expect(companyStanding.join("\n")).not.toContain("Emory");
+  });
+
+  it("moved the sentences across without rewriting them", () => {
+    // A restructure of approved copy, not a new claim anywhere.
+    expect(parseCompanyStanding(companyStanding)).toEqual([...companyStanding]);
+    expect(parseCredentials(credentials)).toEqual([...credentials]);
+  });
+
+  it("rejects an empty or oversized company standing list", () => {
+    expect(() => parseCompanyStanding([])).toThrow(
+      `Company standing needs at least ${COMPANY_STANDING_MIN} items`,
+    );
+    expect(() =>
+      parseCompanyStanding(credentialItems(COMPANY_STANDING_MAX + 1)),
+    ).toThrow(`Company standing cannot exceed ${COMPANY_STANDING_MAX} items`);
+  });
+
+  it("holds at the company standing boundaries", () => {
+    expect(parseCompanyStanding(credentialItems(COMPANY_STANDING_MIN))).toHaveLength(
+      COMPANY_STANDING_MIN,
+    );
+    expect(parseCompanyStanding(credentialItems(COMPANY_STANDING_MAX))).toHaveLength(
+      COMPANY_STANDING_MAX,
+    );
+  });
+
+  it("rejects duplicated company standing items", () => {
+    expect(() => parseCompanyStanding(["Same", "Same"])).toThrow(
+      "Company standing items must each be unique",
+    );
+  });
+});
+
+describe("credentials draft", () => {
+  it("adds the degree concentration and the one press-worthy certification", () => {
+    expect(CREDENTIALS_DRAFT.join("\n")).toContain(
+      "Strategy and Management Consulting",
+    );
+    expect(CREDENTIALS_DRAFT.join("\n")).toContain("Darden");
+  });
+
+  it("leaves the certificates that are not press copy off", () => {
+    // A self-paced Python certificate and a decade-stale Oracle HR Cloud
+    // specialty are real, but neither belongs on a CEO's press page.
+    const draft = CREDENTIALS_DRAFT.join("\n");
+    expect(draft).not.toContain("Python");
+    expect(draft).not.toContain("Oracle");
+    expect(draft).not.toContain("IBM");
+    // Nor do credential IDs, which are verification handles, not copy.
+    expect(draft).not.toContain("KFFP8484PV67");
+    expect(draft).not.toContain("ZJLY5M35NG6Q");
+  });
+
+  it("is not published", () => {
+    expect(CREDENTIALS_DRAFT_APPROVED).toBe(false);
+    expect(credentials).not.toEqual([...CREDENTIALS_DRAFT]);
+  });
+
+  it("shows on the dev server and nowhere else", () => {
+    expect(resolveCredentials(true, false)).toEqual([...CREDENTIALS_DRAFT]);
+    expect(resolveCredentials(false, false)).toEqual([...credentials]);
+    expect(resolveCredentials(false, true)).toEqual([...CREDENTIALS_DRAFT]);
+  });
+
+  it("catches a draft credential pasted into the published list", () => {
+    const leaked = CREDENTIALS_DRAFT[1]!;
+    expect(() => assertCredentialsCleared([leaked], false)).toThrow(
+      `Credential "${leaked}" is awaiting confirmation`,
+    );
+  });
+
+  it("does not flag the published degree line the draft rewrites", () => {
+    expect(assertCredentialsCleared(credentials, false)).toEqual(credentials);
   });
 });
 
@@ -578,25 +932,25 @@ describe("parseCredentials", () => {
   });
 
   it("rejects credentials below the minimum", () => {
-    expect(() => parseCredentials(timelineItems(CREDENTIALS_MIN - 1))).toThrow(
+    expect(() => parseCredentials(credentialItems(CREDENTIALS_MIN - 1))).toThrow(
       `Credentials need at least ${CREDENTIALS_MIN} items`,
     );
   });
 
   it("accepts credentials exactly at the minimum", () => {
-    expect(parseCredentials(timelineItems(CREDENTIALS_MIN))).toHaveLength(
+    expect(parseCredentials(credentialItems(CREDENTIALS_MIN))).toHaveLength(
       CREDENTIALS_MIN,
     );
   });
 
   it("accepts credentials exactly at the maximum", () => {
-    expect(parseCredentials(timelineItems(CREDENTIALS_MAX))).toHaveLength(
+    expect(parseCredentials(credentialItems(CREDENTIALS_MAX))).toHaveLength(
       CREDENTIALS_MAX,
     );
   });
 
   it("rejects credentials above the maximum", () => {
-    expect(() => parseCredentials(timelineItems(CREDENTIALS_MAX + 1))).toThrow(
+    expect(() => parseCredentials(credentialItems(CREDENTIALS_MAX + 1))).toThrow(
       `Credentials cannot exceed ${CREDENTIALS_MAX} items`,
     );
   });

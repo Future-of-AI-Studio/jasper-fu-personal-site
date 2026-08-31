@@ -161,28 +161,117 @@ export function parseQuickFacts(facts: readonly QuickFact[]) {
   return parsed;
 }
 
-export const careerTimeline = [
-  "PwC, digital transformation consulting",
-  "Fintech penetration testing, where he learned how payment systems get attacked",
-  "Director of Product at Community Gaming, onboarding users from Web2 into Web3",
-  "Co-founded Coinsub with David Akers, building the orchestration layer for programmable money",
-] as const;
+/**
+ * The period is its own field rather than part of the sentence, so /about can
+ * set it as a label in its own column and the dates line up into something a
+ * reader can scan. Optional: the published entries carry no dates yet, and an
+ * entry without one simply takes the full row.
+ */
+export type CareerTimelineEntry = {
+  period?: string;
+  detail: string;
+};
+
+export const careerTimeline: readonly CareerTimelineEntry[] = [
+  { detail: "PwC, digital transformation consulting" },
+  {
+    detail:
+      "Fintech penetration testing, where he learned how payment systems get attacked",
+  },
+  {
+    detail:
+      "Director of Product at Community Gaming, onboarding users from Web2 into Web3",
+  },
+  {
+    detail:
+      "Co-founded Coinsub with David Akers, building the orchestration layer for programmable money",
+  },
+];
+
+/**
+ * Drafted from Jasper's LinkedIn experience section on 2026-08-31 and NOT
+ * yet confirmed by him. Held out of the render until
+ * CAREER_TIMELINE_DRAFT_APPROVED flips; `careerTimeline` above is what
+ * /about still shows.
+ *
+ * Two of these correct the published copy rather than extend it. Community
+ * Gaming's title is Director of Product *Management*, and PwC's was Project
+ * Lead, so those two are worth confirming first even if the rest waits.
+ * The remainder adds the dates the published timeline omits entirely, plus
+ * the six concurrent advisory roles folded into one line so the spine stays
+ * a sentence a journalist can paraphrase rather than a résumé.
+ *
+ * Deliberately absent: the Walapay investor role. Walapay is a global money
+ * movement platform covering fiat and stablecoins, which is adjacent to
+ * Coinsub's own market, so on a press site it reads as a disclosure rather
+ * than a career step. It needs its own placement decision before it lands
+ * anywhere on the site.
+ */
+export const CAREER_TIMELINE_DRAFT: readonly CareerTimelineEntry[] = [
+  {
+    period: "2015-2021",
+    detail:
+      "PwC, project lead on digital transformation for Fortune 50 companies",
+  },
+  {
+    period: "2019-2022",
+    detail:
+      "Fintech penetration tester, probing payment rails for banks, gateways, and consumer apps",
+  },
+  {
+    period: "2022-2023",
+    detail:
+      "Director of Product Management at Community Gaming, onboarding gamers from Web2 into Web3",
+  },
+  {
+    period: "2023-present",
+    detail:
+      "Co-founded Coinsub with David Akers, building the orchestration layer for programmable money",
+  },
+  {
+    period: "Ongoing",
+    detail:
+      "Advises Otim Labs, Aztlan Capital, Vantack, and Heimata, and heads crypto research at Family Office Networks",
+  },
+];
+
+/**
+ * Flip only once Jasper or Marlene has confirmed every title, date, and
+ * company above. Employment claims on a press site are the reader's evidence,
+ * and LinkedIn is self-reported: it is not that confirmation.
+ */
+export const CAREER_TIMELINE_DRAFT_APPROVED = false;
 
 export const CAREER_TIMELINE_MIN = 2;
 export const CAREER_TIMELINE_MAX = 6;
 
-export function assertCareerTimelineItem(item: string) {
-  const trimmed = item.trim();
-  if (!trimmed) {
+export function assertCareerTimelineItem(
+  item: CareerTimelineEntry,
+): CareerTimelineEntry {
+  const detail = item.detail.trim();
+  if (!detail) {
     throw new Error("Career timeline item is required");
   }
-  if (trimmed.includes("placeholder")) {
+  if (detail.includes("placeholder")) {
     throw new Error("Career timeline item is a placeholder");
   }
-  return trimmed;
+
+  // The period is optional, but an empty one would render as a blank column
+  // rather than the full-width row an entry without a date is meant to get.
+  if (item.period === undefined) {
+    return { detail };
+  }
+  const period = item.period.trim();
+  if (!period) {
+    throw new Error("Career timeline period cannot be empty");
+  }
+  if (period.includes("placeholder")) {
+    throw new Error("Career timeline period is a placeholder");
+  }
+  return { period, detail };
 }
 
-export function parseCareerTimeline(items: readonly string[]) {
+export function parseCareerTimeline(items: readonly CareerTimelineEntry[]) {
   if (items.length < CAREER_TIMELINE_MIN) {
     throw new Error(`Career timeline needs at least ${CAREER_TIMELINE_MIN} items`);
   }
@@ -190,19 +279,212 @@ export function parseCareerTimeline(items: readonly string[]) {
     throw new Error(`Career timeline cannot exceed ${CAREER_TIMELINE_MAX} items`);
   }
   const parsed = items.map(assertCareerTimelineItem);
-  if (new Set(parsed).size !== parsed.length) {
+  if (new Set(parsed.map((entry) => entry.detail)).size !== parsed.length) {
     throw new Error("Career timeline items must each be unique");
+  }
+  // All dated or none: a mixed list leaves some rows indented past an empty
+  // column and others not, which reads as a layout fault rather than a list.
+  const dated = parsed.filter((entry) => entry.period !== undefined).length;
+  if (dated !== 0 && dated !== parsed.length) {
+    throw new Error("Career timeline periods must be on every item or none");
   }
   return parsed;
 }
 
+/**
+ * The gate the draft has to pass to reach a page. Shape is checked the same
+ * way the published timeline is, then clearance on top, so an unconfirmed
+ * employment claim fails here rather than shipping.
+ */
+export function parsePublishableCareerTimeline(
+  items: readonly CareerTimelineEntry[],
+  approved: boolean,
+) {
+  const parsed = parseCareerTimeline(items);
+  if (!approved) {
+    throw new Error("Career timeline draft is not cleared for publication");
+  }
+  return parsed;
+}
+
+/**
+ * Which timeline /about renders.
+ *
+ * The draft shows on the dev server so it can be read in place, and nowhere
+ * else. Keyed on development rather than "not production" deliberately: the
+ * test environment is neither, and it has to stay on the published copy so
+ * the absence assertions in app/public-routes.test.tsx keep proving that
+ * unconfirmed employment claims cannot ship.
+ *
+ * `next build` runs as production, so a build, and therefore any deploy,
+ * bakes in `careerTimeline` no matter what the dev server is showing.
+ */
+export function resolveCareerTimeline(
+  isDevelopment: boolean,
+  approved: boolean = CAREER_TIMELINE_DRAFT_APPROVED,
+) {
+  if (approved) {
+    return parsePublishableCareerTimeline(CAREER_TIMELINE_DRAFT, approved);
+  }
+  // Unconfirmed either way, so the published constant still has to be clean.
+  assertCareerTimelineCleared(careerTimeline, false);
+  return parseCareerTimeline(
+    isDevelopment ? CAREER_TIMELINE_DRAFT : careerTimeline,
+  );
+}
+
+/**
+ * Refuses a published timeline that has quietly absorbed a draft line while
+ * the draft is still unconfirmed. Guards the copy/paste route around the
+ * clearance flag, which is how unreviewed copy usually ships.
+ */
+export function assertCareerTimelineCleared(
+  items: readonly CareerTimelineEntry[],
+  approved: boolean = CAREER_TIMELINE_DRAFT_APPROVED,
+) {
+  if (approved) {
+    return items;
+  }
+  // Only the details the draft ADDS are unconfirmed. Moving the date into
+  // its own field left some draft sentences identical to published ones (the
+  // Coinsub line, for instance), and a sentence already on the site is not
+  // awaiting anything.
+  const published = new Set(
+    careerTimeline.map((entry) => entry.detail.trim()),
+  );
+  const draftOnly = new Set(
+    CAREER_TIMELINE_DRAFT.map((entry) => entry.detail.trim()).filter(
+      (detail) => !published.has(detail),
+    ),
+  );
+
+  for (const item of items) {
+    const detail = item.detail.trim();
+    if (draftOnly.has(detail)) {
+      throw new Error(
+        `Career timeline item "${detail}" is awaiting confirmation`,
+      );
+    }
+    // Every date on the site would come from the unconfirmed LinkedIn
+    // source, so while the draft is unconfirmed the published timeline
+    // carries no periods at all. This catches a date arriving on a sentence
+    // that is otherwise already public.
+    if (item.period !== undefined) {
+      throw new Error(
+        `Career timeline period for "${detail}" is awaiting confirmation`,
+      );
+    }
+  }
+  return items;
+}
+
+/**
+ * Jasper's own education and certification.
+ *
+ * Split from the company's registration facts, which used to share this list
+ * under one heading: two of the three entries were about Coinsub rather than
+ * about him. The split is a restructure of approved copy, not new claims, so
+ * every sentence below is unchanged from what was already published.
+ */
 export const credentials = [
   "Emory University, Goizueta Business School, BBA",
+] as const;
+
+/**
+ * Adds the degree concentration and the one certification worth a press
+ * page. Sourced from LinkedIn on 2026-08-31 and NOT confirmed by Jasper;
+ * held until CREDENTIALS_DRAFT_APPROVED flips, exactly like the timeline.
+ *
+ * Undated on purpose. The paste carries "Issued Mar 2022" for the
+ * certification but no years at all for the degree, and a half-dated list
+ * would be rejected by the all-or-none rule that keeps rows from indenting
+ * past an empty column. Supply Emory's years and both can move to the
+ * period column the career timeline uses.
+ *
+ * Deliberately absent: the IBM Python certificate and the 2016 Oracle HR
+ * Cloud specialty. Both are real, neither is press copy for a stablecoin
+ * infrastructure CEO, and the Oracle one is a decade stale.
+ */
+export const CREDENTIALS_DRAFT = [
+  "Emory University, Goizueta Business School, BBA in Strategy and Management Consulting",
+  "Digital Product Management, University of Virginia Darden School of Business, 2022",
+] as const;
+
+export const CREDENTIALS_DRAFT_APPROVED = false;
+
+/**
+ * Coinsub's registration and corporate facts, which is what the second list
+ * on /about now carries. Undated: "MSB-registered" has no single meaningful
+ * date, and inventing one to satisfy a layout rule would be stating
+ * something the site cannot stand behind.
+ */
+export const companyStanding = [
   "MSB-registered in the US (FinCEN) and Canada (FINTRAC), with ISO 27001 and SOC 2 in progress",
   "Coinsub founded 2023, headquartered in New York City, New York, with an incorporation address in Middletown, Delaware, U.S.",
 ] as const;
 
-export const CREDENTIALS_MIN = 2;
+export const COMPANY_STANDING_MIN = 1;
+export const COMPANY_STANDING_MAX = 4;
+
+export function parseCompanyStanding(items: readonly string[]) {
+  if (items.length < COMPANY_STANDING_MIN) {
+    throw new Error(
+      `Company standing needs at least ${COMPANY_STANDING_MIN} items`,
+    );
+  }
+  if (items.length > COMPANY_STANDING_MAX) {
+    throw new Error(
+      `Company standing cannot exceed ${COMPANY_STANDING_MAX} items`,
+    );
+  }
+  const parsed = items.map(assertCredentialItem);
+  if (new Set(parsed).size !== parsed.length) {
+    throw new Error("Company standing items must each be unique");
+  }
+  return parsed;
+}
+
+/** Which credentials list /about renders. Mirrors resolveCareerTimeline. */
+export function resolveCredentials(
+  isDevelopment: boolean,
+  approved: boolean = CREDENTIALS_DRAFT_APPROVED,
+) {
+  if (approved) {
+    return parseCredentials(CREDENTIALS_DRAFT);
+  }
+  assertCredentialsCleared(credentials, false);
+  return parseCredentials(isDevelopment ? CREDENTIALS_DRAFT : credentials);
+}
+
+/**
+ * Refuses a published credentials list that has absorbed a draft line while
+ * the draft is unconfirmed. Only the sentences the draft ADDS count, so a
+ * line the two lists legitimately share is not flagged.
+ */
+export function assertCredentialsCleared(
+  items: readonly string[],
+  approved: boolean = CREDENTIALS_DRAFT_APPROVED,
+) {
+  if (approved) {
+    return items;
+  }
+  const published = new Set<string>(credentials.map((item) => item.trim()));
+  const draftOnly = new Set(
+    CREDENTIALS_DRAFT.map((item) => item.trim()).filter(
+      (item) => !published.has(item),
+    ),
+  );
+  for (const item of items) {
+    const trimmed = item.trim();
+    if (draftOnly.has(trimmed)) {
+      throw new Error(`Credential "${trimmed}" is awaiting confirmation`);
+    }
+  }
+  return items;
+}
+
+/** One entry is legitimate while the certification awaits confirmation. */
+export const CREDENTIALS_MIN = 1;
 export const CREDENTIALS_MAX = 6;
 
 export function assertCredentialItem(item: string) {

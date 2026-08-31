@@ -1,7 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SiteShell } from "./site-shell";
+import { REVEAL_NOSCRIPT_FALLBACK, SiteShell } from "./site-shell";
 
 function verifySiteShell() {
   const primary = screen.getByRole("navigation", {
@@ -96,5 +97,28 @@ describe("SiteShell", () => {
     );
 
     verifySiteShell();
+  });
+
+  it("restores the scroll reveal for a reader with scripting off", () => {
+    // Asserted against the server markup, not the client DOM: React drops
+    // noscript children once scripting is on, so the style exists only in
+    // the shipped HTML — which is the one place it has to.
+    const markup = renderToStaticMarkup(
+      <SiteShell>
+        <p>Page body</p>
+      </SiteShell>,
+    );
+
+    // The reveal hides [data-reveal] from first paint so a section is never
+    // painted and then taken away. Nothing adds .is-revealed without
+    // scripting, so without this the home page is blank below the hero.
+    expect(markup).toContain(
+      `<noscript><style>${REVEAL_NOSCRIPT_FALLBACK}</style></noscript>`,
+    );
+    expect(REVEAL_NOSCRIPT_FALLBACK).toContain("[data-reveal]");
+    expect(REVEAL_NOSCRIPT_FALLBACK).toContain("opacity:1!important");
+    expect(REVEAL_NOSCRIPT_FALLBACK).toContain("transform:none!important");
+    // It has to outrank the scoped hidden state, which carries body:has().
+    expect(REVEAL_NOSCRIPT_FALLBACK.match(/!important/g)).toHaveLength(2);
   });
 });

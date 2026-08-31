@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { PressTabs } from "../../../components/press/press-tabs";
 import { PageHead } from "../../../components/site/page-head";
 import {
   assertWatchInterviewCta,
@@ -33,9 +32,8 @@ export default function MediaCoveragePage() {
   const featuredOutlet = featured ? assertOutletMarkFor(featured.outlet) : null;
 
   return (
-    <PressTabs active="coverage">
+    <>
       <PageHead
-        eyebrow="Press"
         title="Media Coverage and Interviews"
         lede="Interviews and coverage featuring Jasper Fu, for desks that need the primary sources in one place."
       />
@@ -85,7 +83,9 @@ export default function MediaCoveragePage() {
       {/* Same card as a press release: thumbnail, then the copy, footed by a
           full-width button. The action names the medium, since these are
           videos and a podcast as well as written coverage. */}
-      <section className="band">
+      {/* Below the featured interview, so the observer owns it rather than
+          the entrance, exactly as on the About page. */}
+      <section className="band" data-reveal>
         <div className="card-grid">
           {rest.map((item) => (
             <article className="card card--thumb" key={item.title}>
@@ -113,6 +113,6 @@ export default function MediaCoveragePage() {
           ))}
         </div>
       </section>
-    </PressTabs>
+    </>
   );
 }
