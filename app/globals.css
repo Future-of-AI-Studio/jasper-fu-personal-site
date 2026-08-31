@@ -30,12 +30,27 @@
   --font-sans: "Inter Variable", Inter, system-ui, sans-serif;
   --font-mono: "Inter Variable", Inter, system-ui, sans-serif;
   --gutter: 1.5rem;
-  --container: 80rem;
+  /* Pinned at 80rem the shell filled half a 2560px display and left ~640px
+     dead either side. 85vw holds the same share of the screen a laptop
+     already gets (~89% at 1440px, gutters aside); the 100rem stop keeps an
+     ultrawide from running the page to the bezels. Below ~1506px the 80rem
+     floor still wins, so laptop layout is untouched. */
+  --container: clamp(80rem, 85vw, 100rem);
   --measure: 38rem;
   --radius: 16px;
   --radius-pill: 10px;
   --wordmark-name-inset: calc(3.5rem + 0.9rem);
   --hero-fold-chrome: 15rem;
+  /* Masthead plus the About header, so the showcase can size itself against
+     what is actually left of the viewport. See .showcase__frame.
+     Bounded on both sides, and lib/identity-css.test.ts holds it there: below
+     ~20rem the cap subtracts less than the header actually occupies and the
+     frame still overflows a short window, while above ~22.9rem it starts
+     clipping a full-height 1440x900 laptop that has no need of it.
+     Came down from 22.25rem when the page-name eyebrow was retired: the
+     header lost ~31px, and leaving the budget alone would have gone on
+     cropping the photo by that much for no reason. */
+  --about-fold-chrome: 20.25rem;
   --gold: #c5a36a;
 }
 
@@ -49,7 +64,16 @@
    opens a horizontal scrollbar.
    `clip` rather than `hidden`: hidden would make this a scroll container and
    break `position: sticky` on the masthead, while clip does not. */
+/* Everything below is sized in rem, so the root step is what lets a 2560px
+   display show the page at the size it was drawn for rather than a 1280px
+   composition marooned in the middle. Held at 100% until 1600px, so laptops
+   are untouched, then up to 137.5% at 2560px.
+   A percentage/rem here resolves against the browser's own default, so a
+   reader who has raised their default font size keeps the increase — which a
+   px root font-size would silently discard. Media queries stay in px, so no
+   breakpoint moves. */
 html {
+  font-size: clamp(1rem, 0.6vw + 0.4rem, 1.375rem);
   overflow-x: clip;
   background: var(--background);
   color: var(--foreground);
@@ -529,6 +553,12 @@ article {
 .hero {
   position: relative;
   isolation: isolate;
+  /* The name and its watermark are sized against this box rather than the
+     viewport. A vw slope tracked the shell only while the shell was
+     gutter-bound; once --container caps, vw keeps climbing and the shell does
+     not, so the two drift apart at exactly the widths this section is meant
+     to fill. cqw holds the ratio at every width. */
+  container-type: inline-size;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1fr);
   grid-template-areas:
@@ -549,7 +579,7 @@ article {
   transform: translateX(-50%);
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(6rem, 18vw, 15rem);
+  font-size: clamp(6rem, 19cqw, 26rem);
   font-weight: 700;
   line-height: 0.8;
   letter-spacing: -0.04em;
@@ -565,7 +595,7 @@ article {
   z-index: 1;
   margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(3rem, 15vw, 13rem);
+  font-size: clamp(3rem, 16.4cqw, 22rem);
   font-weight: 700;
   line-height: 0.92;
   letter-spacing: -0.045em;
@@ -574,11 +604,22 @@ article {
   color: var(--navy);
 }
 
+/* Shrink-wraps the name so the wipe's mask percentages resolve against the
+   width of the text itself. The h1 spans the whole grid row, which would
+   stretch the sweep across empty space either side of the name. */
+.hero__name-type {
+  display: inline-block;
+  max-width: 100%;
+}
+
 .hero__portrait {
   grid-area: portrait;
   position: relative;
   z-index: 2;
   justify-self: center;
+  /* Stays in rem so it rides the root step with the rest of the composition.
+     Tried as a share of the shell (32.5cqw) the head reached 655px on a
+     2560px display and swallowed the headline it is meant to sit behind. */
   width: min(100%, 26rem);
   /* Lifts the headshot into the foot of the headline — enough for the
      letters to pass behind the head, not so much that the name is lost. */
@@ -693,6 +734,182 @@ article {
   color: var(--navy);
 }
 
+/* Hero entrance ------------------------------------------------------------
+   A staged first-paint sequence: the name types itself, the portrait eases up
+   behind it, the intro copy and the topic list arrive together, and the
+   outlet strip lands last. The stage names and every delay below are pinned
+   in lib/motion/hero-entrance.ts, and lib/identity-css.test.ts reads this
+   file back to hold the two in step.
+
+   Every from-state lives inside the no-preference block, never on the base
+   rule. A reduced-motion reader — or any engine that skips these rules — is
+   then served the finished hero rather than an empty one waiting on an
+   animation that will never run. */
+@media (prefers-reduced-motion: no-preference) {
+  /* The name fades up left to right under a gradient mask three times its
+     own width: the box only ever shows a third of that mask, so sliding the
+     mask right to left walks one soft edge across the letters. The stops put
+     the ramp at ~40% of the name's width — narrow enough to read as a
+     direction, wide enough not to look like a wipe with a hard edge. */
+  [data-hero-stage="name"] .hero__name-type {
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      #000 0%,
+      #000 46%,
+      transparent 60%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      #000 0%,
+      #000 46%,
+      transparent 60%,
+      transparent 100%
+    );
+    -webkit-mask-size: 300% 100%;
+    mask-size: 300% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    animation: hero-name-wipe 850ms ease-out 150ms both;
+  }
+
+  .hero__watermark {
+    animation: hero-fade 900ms ease-out 150ms both;
+  }
+
+  [data-hero-stage="portrait"] {
+    animation: hero-portrait-in 650ms cubic-bezier(0.22, 0.68, 0.28, 1) 1000ms
+      both;
+  }
+
+  [data-hero-stage="copy"] {
+    animation: hero-rise 500ms cubic-bezier(0.22, 0.68, 0.28, 1) 1550ms both;
+  }
+
+  [data-hero-stage="outlets"] {
+    animation: hero-rise 500ms cubic-bezier(0.22, 0.68, 0.28, 1) 1950ms both;
+  }
+
+  /* The masthead CTA closes the sequence. It is chrome on every page, so the
+     hero cannot mark it with a stage attribute the way it marks its own
+     children — this scopes the highlight to the one page whose entrance
+     leads into it, on the same :has() hook the unlock screen uses.
+
+     `backwards`, never `both`: the fill has to release when the animation
+     ends so ::before returns to the base scaleX(0) and hover owns it again.
+     A forwards fill would pin the button in its swept state for good.
+
+     ease-in-out, not the ease-out the arrival stages use: this is the same
+     gold fill the hover transition drives, and that is set in ease-in-out.
+     Matching it keeps the scripted sweep and the hover sweep reading as one
+     gesture at two speeds. */
+  body:has(.home) .header-cta::before {
+    animation: hero-cta-sweep 1200ms ease-in-out 2450ms backwards;
+  }
+
+  body:has(.home) .header-cta {
+    animation: hero-cta-flare 1200ms ease-in-out 2450ms backwards;
+  }
+}
+
+/* At 100% the box sits over the mask's transparent tail and the name is
+   hidden; at 0% it sits over the solid head and every letter is at full
+   strength. Nothing but the mask moves, so the letters never shift. */
+@keyframes hero-name-wipe {
+  from {
+    -webkit-mask-position: 100% 0;
+    mask-position: 100% 0;
+  }
+
+  to {
+    -webkit-mask-position: 0% 0;
+    mask-position: 0% 0;
+  }
+}
+
+@keyframes hero-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* The gold band the button already shows on hover, run once across and off.
+   It grows from the left edge, then retreats to the right, so the fill
+   travels rather than just appearing and leaving the way it came. The origin
+   flips at the frame where the band covers the whole button, which is the
+   one moment the two origins are visually identical. */
+@keyframes hero-cta-sweep {
+  0% {
+    transform: scaleX(0);
+    transform-origin: left center;
+  }
+
+  50% {
+    transform: scaleX(1);
+    transform-origin: left center;
+  }
+
+  51% {
+    transform: scaleX(1);
+    transform-origin: right center;
+  }
+
+  100% {
+    transform: scaleX(0);
+    transform-origin: right center;
+  }
+}
+
+/* Rides with the sweep so the button reads as lit rather than merely wiped.
+   Opacity is deliberately untouched: the CTA is live from first paint and
+   must never dim on its way to being highlighted. */
+@keyframes hero-cta-flare {
+  0%,
+  100% {
+    border-color: var(--navy);
+    color: var(--white);
+    box-shadow: 0 0 0 0 transparent;
+  }
+
+  50% {
+    border-color: var(--gold);
+    /* The label has to turn over with the fill, exactly as it does on hover:
+       white on gold is a ~2:1 contrast the button should never sit at. */
+    color: var(--navy);
+    box-shadow: 0 0 0 0.3rem color-mix(in srgb, var(--gold) 26%, transparent);
+  }
+}
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 1.75rem, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The portrait carries a touch of scale the copy does not — it reads as the
+   head settling into the headline rather than sliding up into it. */
+@keyframes hero-portrait-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 2.5rem, 0) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .hero__photo {
   min-height: 0;
   height: min(28rem, calc(100svh - var(--hero-fold-chrome)));
@@ -773,25 +990,24 @@ article {
   display: grid;
   justify-items: center;
   text-align: center;
-  margin-bottom: clamp(2rem, 4vw, 3rem);
+  /* Tightened so the header, its deck, and the showcase fit one screen. */
+  margin-bottom: clamp(1.25rem, 2.4vw, 1.75rem);
   padding-bottom: 0;
   border-bottom: 0;
 }
 
-.page-head--label .eyebrow {
-  margin: 0 0 1.15rem;
-  color: var(--sky);
-  font-size: 0.75rem;
-}
-
 .about-headline {
   margin: 0;
-  max-width: 20ch;
+  /* 28ch, not 20ch: the locked one-liner is 54 characters, which 20ch broke
+     over three lines. Two lines is what lets the header, the deck, and the
+     showcase share one screen — and re-ragging is a cheaper way to buy that
+     line back than shrinking the page's loudest type. */
+  max-width: 28ch;
   font-family: var(--font-display);
   font-size: clamp(2.1rem, 4.4vw, 3.5rem);
   font-weight: 700;
   letter-spacing: -0.015em;
-  line-height: 1.1;
+  line-height: 1.06;
   color: var(--navy);
 }
 
@@ -885,7 +1101,15 @@ article {
   color: var(--ink);
 }
 
-.page-head h1,
+/* Matched to .about-headline. The page heads used to run a full step larger
+   than the About page's lead statement, which made /press shout louder than
+   the page carrying the actual biography, and pushed its article thumbnails
+   out of the first screen. Legal keeps its own larger scale below. */
+.page-head h1 {
+  max-width: 16ch;
+  font-size: clamp(2.1rem, 4.4vw, 3.5rem);
+}
+
 .legal-page__header h1 {
   max-width: 16ch;
   font-size: clamp(2.6rem, 5.5vw, 4.6rem);
@@ -896,13 +1120,14 @@ article {
   font-size: inherit;
 }
 
+/* Sized and led like the About deck, so the two pages read at one scale. */
 .page-head__lede {
   max-width: 38rem;
   margin: 1.1rem 0 0;
   font-family: var(--font-display);
-  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  font-size: clamp(1rem, 1.3vw, 1.18rem);
   font-style: italic;
-  line-height: 1.35;
+  line-height: 1.6;
   color: var(--ink);
 }
 
@@ -957,6 +1182,19 @@ article {
   transition:
     transform 180ms ease,
     background-color 180ms ease;
+}
+
+/* A label, not a pill. The row already carries a dot and a rail, and the
+   detail beside it is itself a soft rounded block, so a filled chip here
+   would be the third anchor before the reader reaches any words. Set in the
+   sitewide eyebrow idiom instead, in a fixed column so the dates line up
+   into something scannable rather than ragging with the sentences. */
+.career-timeline__period {
+  flex: 0 0 7rem;
+  /* Matches the detail's own top padding so the two sit on one line. */
+  padding-top: 0.75rem;
+  color: var(--sky);
+  white-space: nowrap;
 }
 
 .career-timeline__item p {
@@ -1300,13 +1538,31 @@ article {
   padding: 4rem 0 0;
 }
 
+/* The band straight after a page head is that head's own content, not a new
+   section, so it does not need a section's worth of air above it. At 6rem of
+   band padding plus the grid's own 2rem the lede sat 128px clear of the
+   thumbnails it was introducing. Specificity beats the 900px .band rule, so
+   this holds at every width. */
+.page-head + .band {
+  padding-top: 1.25rem;
+}
+
+/* Unless that band opens with its own section label, in which case it is a
+   new section rather than the lede's own content, and running it up against
+   the lede reads as one block. Keyed on the label itself: /press drops
+   straight into a card grid and stays close, while the coverage page opens
+   on "Featured interview" and needs the separation. */
+.page-head + .band:has(.eyebrow) {
+  padding-top: 4rem;
+}
+
 .band .section-intro p,
 .band > p {
   max-width: var(--measure);
 }
 
 article:has(.about-bio) {
-  padding-top: 1.25rem;
+  padding-top: 0.5rem;
 }
 
 /* Hero media card: the interview still framed as a press asset, with the
@@ -1322,6 +1578,13 @@ article:has(.about-bio) {
   border-radius: clamp(14px, 1.5vw, 22px);
   background: var(--ink);
   box-shadow: 0 30px 70px -34px rgb(6 26 54 / 0.5);
+  /* The image's height follows the container width, not the viewport, so on
+     a short window no amount of header tightening keeps it above the fold.
+     This yields the frame instead: overflow already clips, and the source is
+     top-anchored, so what goes is the bottom — the same edge the 12/5 crop
+     is trimming anyway. Sized off the header above it, so at a full-height
+     laptop or desktop the aspect ratio still governs and nothing is lost. */
+  max-height: calc(100svh - var(--about-fold-chrome));
 }
 
 .showcase__image {
@@ -1491,7 +1754,7 @@ article:has(.about-bio) {
 }
 
 .page-head--label .about-bio__quote {
-  margin: clamp(1rem, 2vw, 1.35rem) 0 0;
+  margin: clamp(0.7rem, 1.4vw, 0.95rem) 0 0;
   max-width: none;
 }
 
@@ -1739,14 +2002,44 @@ article:has(.about-bio) {
   padding-left: 1.1rem;
 }
 
+/* Lifted close to the masthead. The tabs are the page's own navigation, so
+   they belong at the top of it rather than floating a full section's worth
+   of space down, and the room they give back is what puts the article
+   thumbnails in the first screen. */
 .press-tabs {
-  padding-top: clamp(2.5rem, 5vw, 4.75rem);
+  padding-top: clamp(0.75rem, 1.5vw, 1.25rem);
 }
 
 .press-tabs__nav {
-  margin: 0 0 2.5rem;
+  position: relative;
+  margin: 0 0 1.5rem;
   padding-bottom: 0.9rem;
   border-bottom: 1px solid var(--line);
+}
+
+/* One underline for the whole nav, positioned from the measured active link
+   (see lib/press-tabs.ts). A rule on each link could only appear and vanish;
+   a single element can travel between them. */
+.press-tabs__marker {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  width: var(--press-tab-w, 0);
+  transform: translate3d(var(--press-tab-x, 0), 0, 0);
+  background: var(--sky);
+  pointer-events: none;
+}
+
+/* Only once armed, so the marker does not slide in from the left edge the
+   first time it is placed. Under reduced motion it still moves, just
+   without the travel. */
+@media (prefers-reduced-motion: no-preference) {
+  .press-tabs__nav[data-marker="armed"] .press-tabs__marker {
+    transition:
+      transform 320ms cubic-bezier(0.22, 0.68, 0.28, 1),
+      width 320ms cubic-bezier(0.22, 0.68, 0.28, 1);
+  }
 }
 
 .press-tabs__nav a {
@@ -1755,11 +2048,86 @@ article:has(.about-bio) {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-size: 0.78rem;
+  transition:
+    color 220ms ease,
+    box-shadow 220ms ease;
 }
 
+.press-tabs__nav a:hover {
+  color: var(--ink);
+}
+
+/* The fallback underline. It marks the active tab before the marker has been
+   measured, and for a reader with scripting off, who would otherwise get a
+   nav with nothing marked at all. The sliding marker takes over the moment
+   it is placed. */
 .press-tabs__nav a[aria-current="page"] {
   color: var(--ink);
   box-shadow: inset 0 -1px 0 var(--sky);
+}
+
+.press-tabs__nav:not([data-marker="idle"]) a[aria-current="page"] {
+  box-shadow: none;
+}
+
+/* Page entrance ----------------------------------------------------------
+   The About page's vocabulary on every page that opens with a PageHead:
+   fade up, headline first, deck behind it, then the content it introduces.
+   Delays are pinned in lib/motion/page-entrance.ts and asserted here.
+
+   Switching tabs is a route change and the panel is keyed on the active tab,
+   so the panel's contents are new elements every time and this replays. The
+   stagger is what a tab change looks like; it replaced a single fade on the
+   panel, which could only move the whole thing as one block.
+
+   Scoped on a page root rather than stamped on each element, because the
+   headline and deck belong to the shared PageHead. A page opts in with
+   data-page-entrance; one that does not stays still.
+
+   Every from-state sits inside the no-preference block, never on a base
+   rule, so a reduced-motion reader gets the finished page. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-page-entrance] .page-head h1 {
+    animation: page-rise 450ms cubic-bezier(0.22, 0.68, 0.28, 1) 60ms both;
+  }
+
+  [data-page-entrance] .page-head__lede {
+    animation: page-rise 450ms cubic-bezier(0.22, 0.68, 0.28, 1) 180ms both;
+  }
+
+  /* The content each page opens with. A band for press and speaking, the
+     head's own children for the media kit, and the routing list and form for
+     contact, neither of which has a band between it and the head. The form
+     is matched as a direct child so the copy of it nested in the media kit's
+     request dialog is not swept up too. */
+  [data-page-entrance] .page-head + .band,
+  [data-page-entrance] .page-head > :not(h1):not(.eyebrow):not(.page-head__lede),
+  [data-page-entrance] .contact-routing,
+  [data-page-entrance] > .inquiry-form {
+    animation: page-rise 450ms cubic-bezier(0.22, 0.68, 0.28, 1) 300ms both;
+  }
+
+  /* The article cards arrive in turn inside that stage. Staggered by
+     nth-child so the delays stay out of the markup. */
+  [data-page-entrance] .page-head + .band .card:nth-child(2) {
+    animation: page-rise 450ms cubic-bezier(0.22, 0.68, 0.28, 1) 370ms both;
+  }
+
+  [data-page-entrance] .page-head + .band .card:nth-child(3) {
+    animation: page-rise 450ms cubic-bezier(0.22, 0.68, 0.28, 1) 440ms both;
+  }
+}
+
+@keyframes page-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.85rem, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .embed {
@@ -2375,9 +2743,132 @@ th {
   font-weight: 600;
 }
 
+/* About entrance -----------------------------------------------------------
+   The header, its deck, and the showcase share one screen, so this plays on
+   first paint rather than on scroll. Stage names and every delay below are
+   pinned in lib/motion/about-entrance.ts.
+
+   Its own attribute, not the hero's: the hero's stage rules are unscoped, so
+   reusing data-hero-stage here would inherit the home page's animations.
+
+   Runs to 1340ms against the hero's 3650ms. About is a reference page a
+   journalist may revisit, and a showpiece entrance wears out on repeat.
+
+   Every from-state sits inside the no-preference block, never on a base
+   rule, so a reduced-motion reader gets the finished page. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-about-stage="headline"] {
+    animation: about-rise 450ms cubic-bezier(0.22, 0.68, 0.28, 1) 60ms both;
+  }
+
+  [data-about-stage="deck"] {
+    animation: about-rise 450ms cubic-bezier(0.22, 0.68, 0.28, 1) 180ms both;
+  }
+
+  /* The frame fades while the photo inside it eases out of a slight zoom.
+     Splitting the two is what makes it read as the image settling rather
+     than the whole card sliding: overflow: hidden on the frame already
+     clips the oversized photo, so this needs no new mechanism. */
+  [data-about-stage="frame"] {
+    animation: about-fade 620ms ease-out 300ms both;
+  }
+
+  [data-about-stage="frame"] .showcase__image {
+    /* Anchored to the same edge as the crop, so the top of the frame holds
+       still and only the depth changes. */
+    transform-origin: center top;
+    animation: about-photo-settle 620ms cubic-bezier(0.22, 0.68, 0.28, 1)
+      300ms both;
+  }
+
+  [data-about-stage="identity"] {
+    animation: about-rise 380ms ease-out 680ms both;
+  }
+
+  /* The chips carry the stage; staggering them by nth-child keeps the delay
+     out of the markup and off an inline style. */
+  [data-about-stage="stats"] > * {
+    animation: about-rise 340ms ease-out 760ms both;
+  }
+
+  [data-about-stage="stats"] > :nth-child(2) {
+    animation-delay: 830ms;
+  }
+
+  [data-about-stage="stats"] > :nth-child(3) {
+    animation-delay: 900ms;
+  }
+}
+
+@keyframes about-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.85rem, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes about-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes about-photo-settle {
+  from {
+    transform: scale(1.06);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+/* The revealed state, and the state anything not being animated sits in. */
 [data-reveal] {
   opacity: 1;
   transform: none;
+}
+
+/* Scroll reveal ------------------------------------------------------------
+   Sections below the home hero fade up as they come into view. The observer
+   in components/site/motion-root.tsx adds .is-revealed; this is the state it
+   reveals from.
+
+   Opt-in per page: SectionIntro carries data-reveal everywhere, so hiding
+   the attribute site-wide would blank pages that are meant to sit still. A
+   page opts in with data-scroll-reveal on its root (see
+   SCROLL_REVEAL_SCOPE_ATTRIBUTE in lib/motion/reveal.ts).
+
+   Hidden from first paint in CSS rather than by JS on mount, so a section is
+   never painted and then taken away — there is no flash. The cost is that
+   scripting off would leave the page blank below the hero, which the
+   REVEAL_NOSCRIPT_FALLBACK style in components/site/site-shell.tsx covers. */
+@media (prefers-reduced-motion: no-preference) {
+  body:has([data-scroll-reveal]) [data-reveal] {
+    transition:
+      opacity 700ms ease-out,
+      transform 700ms cubic-bezier(0.22, 0.68, 0.28, 1);
+  }
+
+  body:has([data-scroll-reveal]) [data-reveal]:not(.is-revealed) {
+    opacity: 0;
+    transform: translate3d(0, 1.75rem, 0);
+  }
+
+  /* A SectionIntro inside a band that is itself revealing would otherwise
+     travel its own 1.75rem on top of its parent's. It fades in place. */
+  body:has([data-scroll-reveal]) [data-reveal] [data-reveal]:not(.is-revealed) {
+    transform: none;
+  }
 }
 
 @media (max-width: 900px) {
@@ -2421,6 +2912,24 @@ th {
     justify-items: start;
     padding: 0;
     text-align: left;
+  }
+
+  /* A 7rem column plus the detail does not fit a phone, so the period sits
+     above its entry instead of beside it. */
+  .career-timeline__item {
+    flex-wrap: wrap;
+  }
+
+  .career-timeline__period {
+    flex: 1 1 100%;
+    order: 1;
+    padding: 0 0 0 1rem;
+  }
+
+  .career-timeline__item p {
+    order: 2;
+    flex: 1 1 100%;
+    padding-top: 0.25rem;
   }
 
   .fact-grid,

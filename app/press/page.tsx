@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import { PressAlertForm } from "../../components/press/press-alert-form";
-import { PressTabs } from "../../components/press/press-tabs";
 import { PageHead } from "../../components/site/page-head";
 import { SectionIntro } from "../../components/site/legal-document";
 import { interimBlogPosts } from "../../lib/copy";
@@ -18,9 +17,8 @@ export const metadata: Metadata = {
 
 export default function PressReleasesPage() {
   return (
-    <PressTabs active="releases">
+    <>
       <PageHead
-        eyebrow="Press"
         title="Press Releases"
         lede="Official press releases are in preparation and will be posted here as they're announced. In the meantime, here's what Coinsub has been writing and saying publicly."
       />
@@ -52,7 +50,9 @@ export default function PressReleasesPage() {
       {/* The signup sits in its own panel so the ask and the field read as
           one block closing the page, rather than a heading with a
           page-width input floating under it. */}
-      <section className="band">
+      {/* Below the first screen, so the observer owns it rather than the
+          entrance, exactly as on the About page. */}
+      <section className="band" data-reveal>
         <div className="alert-panel">
           <SectionIntro
             eyebrow="Alerts"
@@ -61,6 +61,6 @@ export default function PressReleasesPage() {
           <PressAlertForm />
         </div>
       </section>
-    </PressTabs>
+    </>
   );
 }

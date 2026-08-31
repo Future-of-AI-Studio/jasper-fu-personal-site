@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { BookJasperForm } from "../../components/speaking/book-jasper-form";
 import { PageHead } from "../../components/site/page-head";
+import { SCROLL_REVEAL_SCOPE_ATTRIBUTE } from "../../lib/motion/reveal";
 import { SectionIntro } from "../../components/site/legal-document";
 import {
   PUBLISHED_SPEAKING_BOOKING_TITLE,
@@ -18,9 +19,8 @@ export const metadata: Metadata = {
 
 export default function SpeakingPage() {
   return (
-    <article>
+    <article data-page-entrance {...{ [SCROLL_REVEAL_SCOPE_ATTRIBUTE]: "" }}>
       <PageHead
-        eyebrow="Speaking"
         title="Book Jasper"
         lede={assertSpeakingIntro(speakingIntro)}
       />
@@ -40,7 +40,7 @@ export default function SpeakingPage() {
           ))}
         </ul>
       </section>
-      <section className="band">
+      <section className="band" data-reveal>
         <SectionIntro
           eyebrow="Booking"
           fullWidth

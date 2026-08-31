@@ -90,7 +90,7 @@ export function BookJasperForm() {
         <p className="eyebrow">Booking</p>
         <h3>Request prepared</h3>
         <p>
-          Thanks{draft.name.trim() ? `, ${draft.name.trim()}` : ""} — open email to send
+          Thanks{draft.name.trim() ? `, ${draft.name.trim()}` : ""}. Open email to send
           this speaking request.
         </p>
         <a className="button-link" href={mailto}>
@@ -140,7 +140,7 @@ export function BookJasperForm() {
           ) : null}
         </div>
 
-        <p className="eyebrow speaking-booking__section">01 — Event details</p>
+        <p className="eyebrow speaking-booking__section">01. Event details</p>
         <div className="speaking-booking__grid">
           <SpeakingField
             error={fieldError("eventName")}
@@ -208,7 +208,7 @@ export function BookJasperForm() {
           </SpeakingField>
         </div>
 
-        <p className="eyebrow speaking-booking__section">02 — Requester info</p>
+        <p className="eyebrow speaking-booking__section">02. Requester info</p>
         <div className="speaking-booking__grid">
           <SpeakingField error={fieldError("name")} htmlFor="speaking-name" label="Full name">
             <input
@@ -257,7 +257,7 @@ export function BookJasperForm() {
           </SpeakingField>
         </div>
 
-        <p className="eyebrow speaking-booking__section">03 — Additional context</p>
+        <p className="eyebrow speaking-booking__section">03. Additional context</p>
         <SpeakingField
           error={fieldError("budget")}
           htmlFor="speaking-budget"

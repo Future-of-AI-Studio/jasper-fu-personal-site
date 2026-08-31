@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+﻿import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GATE_PASSWORD_ENV } from "../lib/gate";
 import { identity } from "../lib/identity";
@@ -60,7 +60,7 @@ describe("public SEO metadata", () => {
   it("defines canonical social metadata", () => {
     expect(metadata.metadataBase?.toString()).toBe("https://www.jasperfu.com/");
     expect(metadata.openGraph).toBeTruthy();
-    expect(metadata.openGraph?.title).toBe(`Jasper Fu — ${identity.thesis}`);
+    expect(metadata.openGraph?.title).toBe(`Jasper Fu: ${identity.thesis}`);
     expect(String(metadata.openGraph?.title)).not.toContain(
       "Trust shouldn't be a promise",
     );

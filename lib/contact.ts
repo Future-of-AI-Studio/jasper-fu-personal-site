@@ -131,7 +131,7 @@ export function parseInquirySubmission(
 
 export function createMailto(submission: InquirySubmission) {
   const subject = encodeURIComponent(
-    `${inquiryLabels[submission.inquiryType]} — ${submission.organization}`,
+    `${inquiryLabels[submission.inquiryType]}: ${submission.organization}`,
   );
   const body = encodeURIComponent(
     [
@@ -149,3 +149,162 @@ export function createMailto(submission: InquirySubmission) {
 
   return `mailto:${submission.routeTo}?subject=${subject}&body=${body}`;
 }
+
+/**
+ * The routing lines on /contact, and which inquiry types each one serves.
+ *
+ * The page shows only the line the reader's selected type actually routes
+ * to, so the address on screen is the address their request will go to.
+ */
+export const inquiryRouteGroups = [
+  {
+    label: "Interview and comment requests",
+    email: identity.pressEmail,
+    types: ["interview", "comment", "mediaKit", "other"],
+  },
+  {
+    label: "Speaking and panel requests",
+    email: identity.speakingEmail,
+    types: ["speaking"],
+  },
+  {
+    label: "Partnership and business",
+    email: identity.partnershipEmail,
+    types: ["partnership"],
+  },
+] as const satisfies readonly {
+  label: string;
+  email: string;
+  types: readonly InquiryType[];
+}[];
+
+export type InquiryRouteGroup = {
+  label: string;
+  email: string;
+  types: readonly InquiryType[];
+};
+
+/**
+ * Every type lands in exactly one group, and each group's address matches
+ * what routeInquiry would actually use. Without this the page could show a
+ * reader one inbox while the mailto went to another.
+ */
+export function assertInquiryRouteGroups(
+  groups: readonly InquiryRouteGroup[] = inquiryRouteGroups,
+) {
+  if (groups.length === 0) {
+    throw new Error("Inquiry route groups are required");
+  }
+
+  const seen = new Set<InquiryType>();
+  for (const group of groups) {
+    if (!group.label.trim()) {
+      throw new Error("Inquiry route group label is required");
+    }
+    if (group.types.length === 0) {
+      throw new Error(`${group.label} routes no inquiry types`);
+    }
+    for (const type of group.types) {
+      if (seen.has(type)) {
+        throw new Error(`${type} is routed by more than one group`);
+      }
+      seen.add(type);
+      if (group.email !== inquiryRoutes[type]) {
+        throw new Error(`${type} is shown routing to the wrong inbox`);
+      }
+    }
+  }
+
+  const missing = inquiryTypes.filter((type) => !seen.has(type));
+  if (missing.length > 0) {
+    throw new Error(`${missing[0]} is routed by no group`);
+  }
+
+  return groups;
+}
+
+/** The one routing line to show for a selected type. */
+export function routeGroupFor(inquiryType: InquiryType): InquiryRouteGroup {
+  const match = inquiryRouteGroups.find((group) =>
+    (group.types as readonly InquiryType[]).includes(inquiryType),
+  );
+  if (!match) {
+    throw new Error(`${inquiryType} is routed by no group`);
+  }
+  return match;
+}
+
+/**
+ * Which inquiry types offer a Calendly link.
+ *
+ * Calendly books a conversation. A media kit request is a file to send, and
+ * "Other" is too vague to put a call in front of, so neither gets one.
+ */
+export const SCHEDULING_INQUIRY_TYPES = [
+  "interview",
+  "comment",
+  "speaking",
+  "partnership",
+] as const satisfies readonly InquiryType[];
+
+export function inquiryNeedsScheduling(inquiryType: InquiryType): boolean {
+  return (SCHEDULING_INQUIRY_TYPES as readonly InquiryType[]).includes(
+    inquiryType,
+  );
+}
+
+export type InquiryDraft = {
+  name: string;
+  organization: string;
+  email: string;
+  inquiryType: string;
+  notes: string;
+  deadline: string;
+};
+
+export const EMPTY_INQUIRY_DRAFT: InquiryDraft = {
+  name: "",
+  organization: "",
+  email: "",
+  inquiryType: "interview",
+  notes: "",
+  deadline: "",
+};
+
+export type InquiryField = keyof InquiryDraft;
+
+/**
+ * Per-field messages from the same schema the submit path uses, so what the
+ * form says while you type cannot drift from what it says when you send.
+ * First issue per field only, matching parseInquirySubmission.
+ */
+export function inquiryFieldErrors(
+  draft: InquiryDraft,
+): Partial<Record<InquiryField, string>> {
+  const result = inquirySchema.safeParse(draft);
+  if (result.success) {
+    return {};
+  }
+
+  const errors: Partial<Record<InquiryField, string>> = {};
+  for (const issue of result.error.issues) {
+    const field = issue.path[0];
+    if (typeof field === "string" && !(field in errors)) {
+      errors[field as InquiryField] = issue.message;
+    }
+  }
+  return errors;
+}
+
+/** Whether the draft would survive parseInquirySubmission. */
+export function isInquiryReady(draft: InquiryDraft): boolean {
+  return inquirySchema.safeParse(draft).success;
+}
+
+/** Required fields, in the order they appear in the form. */
+export const REQUIRED_INQUIRY_FIELDS = [
+  "name",
+  "organization",
+  "email",
+  "notes",
+] as const satisfies readonly InquiryField[];

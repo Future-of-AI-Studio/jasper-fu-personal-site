@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 
 import { identity } from "./identity";
 import {
@@ -151,7 +151,7 @@ describe("parseSpeakingBooking", () => {
   it.each([
     [{ startDate: "Oct 14" }, "Start date must be a valid date"],
     [{ endDate: "next tuesday" }, "End date must be a valid date"],
-    // Right shape, impossible calendar date — the pattern alone lets these
+    // Right shape, impossible calendar date: the pattern alone lets these
     // through, so the value is round-tripped through Date.
     [{ startDate: "2026-13-01", endDate: "" }, "Start date must be a valid date"],
     [{ startDate: "2026-02-30", endDate: "" }, "Start date must be a valid date"],
@@ -233,7 +233,7 @@ describe("speaking preview and mailto", () => {
     const href = createSpeakingMailto(parseSpeakingBooking(makeSpeakingDraft()));
     expect(href.startsWith("mailto:speaking@jasperfu.io?")).toBe(true);
     expect(href).toContain(
-      encodeURIComponent("Conference keynote — AI Summit 2026"),
+      encodeURIComponent("Conference keynote: AI Summit 2026"),
     );
     expect(href).toContain(
       encodeURIComponent(compileSpeakingRequestJson(makeSpeakingDraft(), "send")),

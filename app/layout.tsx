@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "/",
     siteName: "Jasper Fu",
-    title: `Jasper Fu — ${identity.thesis}`,
+    title: `Jasper Fu: ${identity.thesis}`,
     description:
       "Press, speaking, and media resources for Jasper Fu, co-founder and CEO of Coinsub.",
   },

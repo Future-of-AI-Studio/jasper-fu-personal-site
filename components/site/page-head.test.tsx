@@ -23,9 +23,19 @@ describe("assertPageHead", () => {
     });
   });
 
-  it("rejects a missing eyebrow", () => {
+  it("omits the eyebrow when none is given", () => {
+    // Every public page used to carry one naming the page it was already on,
+    // above a heading saying much the same thing. They were retired, so an
+    // absent eyebrow is now the normal case rather than a fault.
+    expect(assertPageHead({ title: "Jasper Fu" })).toEqual({
+      title: "Jasper Fu",
+    });
+  });
+
+  it("rejects an empty eyebrow", () => {
+    // Passing "" is a mistake, not a decision: omit the prop instead.
     expect(() => assertPageHead({ eyebrow: " ", title: happyHead.title })).toThrow(
-      "Page head eyebrow is required",
+      "Page head eyebrow cannot be empty",
     );
   });
 
@@ -47,5 +57,13 @@ describe("PageHead", () => {
     render(<PageHead eyebrow={happyHead.eyebrow} title={happyHead.title} />);
     verifyPageHead(happyHead.title, happyHead.eyebrow);
     expect(screen.queryByText(happyHead.lede)).toBeNull();
+  });
+
+  it("renders no eyebrow element when none is given", () => {
+    const { container } = render(<PageHead title={happyHead.title} />);
+    expect(
+      screen.getByRole("heading", { level: 1, name: happyHead.title }),
+    ).toBeTruthy();
+    expect(container.querySelectorAll(".eyebrow")).toHaveLength(0);
   });
 });

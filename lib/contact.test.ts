@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 
 import {
   type InquirySubmission,
@@ -14,7 +14,16 @@ import {
   parseInquirySubmission,
   parseInquiryTypeOptions,
   routeInquiry,
+  assertInquiryRouteGroups,
+  EMPTY_INQUIRY_DRAFT,
+  inquiryFieldErrors,
+  inquiryNeedsScheduling,
+  inquiryRouteGroups,
+  isInquiryReady,
+  REQUIRED_INQUIRY_FIELDS,
+  routeGroupFor,
 } from "./contact";
+import { identity } from "./identity";
 
 function makeInquiry(
   overrides: Partial<InquirySubmission> = {},
@@ -131,7 +140,7 @@ describe("parseInquirySubmission", () => {
     );
     const href = createMailto(submission);
     expect(href.startsWith("mailto:press@coinsub.io?")).toBe(true);
-    expect(href).toContain(encodeURIComponent("Request Media Kit — NASDAQ"));
+    expect(href).toContain(encodeURIComponent("Request Media Kit: NASDAQ"));
   });
 
   it.each([
@@ -168,7 +177,163 @@ describe("parseInquirySubmission", () => {
     const submission = parseInquirySubmission(makeInquiry());
     const href = createMailto(submission);
     expect(href.startsWith("mailto:press@coinsub.io?")).toBe(true);
-    expect(href).toContain(encodeURIComponent("Interview request — NASDAQ"));
+    expect(href).toContain(encodeURIComponent("Interview request: NASDAQ"));
     expect(href).not.toContain("Requested slot");
+  });
+});
+
+describe("inquiry route groups", () => {
+  it("publishes one line per inbox, covering every type", () => {
+    expect(assertInquiryRouteGroups()).toBe(inquiryRouteGroups);
+    for (const type of inquiryTypes) {
+      expect(routeGroupFor(type).email).toBe(routeInquiry(type));
+    }
+  });
+
+  it("rejects an empty set of groups", () => {
+    expect(() => assertInquiryRouteGroups([])).toThrow(
+      "Inquiry route groups are required",
+    );
+  });
+
+  it("rejects a group with no label", () => {
+    expect(() =>
+      assertInquiryRouteGroups([
+        { label: "  ", email: identity.pressEmail, types: [...inquiryTypes] },
+      ]),
+    ).toThrow("Inquiry route group label is required");
+  });
+
+  it("rejects a group that routes nothing", () => {
+    expect(() =>
+      assertInquiryRouteGroups([
+        { label: "Empty", email: identity.pressEmail, types: [] },
+      ]),
+    ).toThrow("Empty routes no inquiry types");
+  });
+
+  it("rejects a type claimed by two groups", () => {
+    expect(() =>
+      assertInquiryRouteGroups([
+        { label: "One", email: identity.pressEmail, types: ["interview"] },
+        { label: "Two", email: identity.pressEmail, types: ["interview"] },
+      ]),
+    ).toThrow("interview is routed by more than one group");
+  });
+
+  it("rejects a line that shows an inbox the mailto would not use", () => {
+    // The failure this exists for: the page naming one address while the
+    // request goes to another.
+    expect(() =>
+      assertInquiryRouteGroups([
+        { label: "Wrong", email: identity.speakingEmail, types: ["interview"] },
+      ]),
+    ).toThrow("interview is shown routing to the wrong inbox");
+  });
+
+  it("rejects a type no group covers", () => {
+    expect(() =>
+      assertInquiryRouteGroups([
+        { label: "Press", email: identity.pressEmail, types: ["interview"] },
+      ]),
+    ).toThrow("comment is routed by no group");
+  });
+
+  it("rejects a lookup for a type outside the taxonomy", () => {
+    expect(() => routeGroupFor("nonsense" as never)).toThrow(
+      "nonsense is routed by no group",
+    );
+  });
+});
+
+describe("inquiryNeedsScheduling", () => {
+  it("offers a call for the types that are a conversation", () => {
+    expect(inquiryNeedsScheduling("interview")).toBe(true);
+    expect(inquiryNeedsScheduling("comment")).toBe(true);
+    expect(inquiryNeedsScheduling("speaking")).toBe(true);
+    expect(inquiryNeedsScheduling("partnership")).toBe(true);
+  });
+
+  it("withholds it where a call is not what is being asked for", () => {
+    // A media kit is a file to send; "Other" is too vague to put a call in
+    // front of.
+    expect(inquiryNeedsScheduling("mediaKit")).toBe(false);
+    expect(inquiryNeedsScheduling("other")).toBe(false);
+  });
+
+  it("decides for every published type", () => {
+    for (const type of inquiryTypes) {
+      expect(typeof inquiryNeedsScheduling(type)).toBe("boolean");
+    }
+  });
+});
+
+describe("inquiry draft validation", () => {
+  const complete = {
+    name: "Jane King",
+    organization: "NASDAQ",
+    email: "jane@example.com",
+    inquiryType: "interview",
+    notes: "Need a comment on rails.",
+    deadline: "",
+  };
+
+  it("passes a complete draft", () => {
+    expect(inquiryFieldErrors(complete)).toEqual({});
+    expect(isInquiryReady(complete)).toBe(true);
+  });
+
+  it("reports every empty required field at once", () => {
+    const errors = inquiryFieldErrors(EMPTY_INQUIRY_DRAFT);
+    expect(errors).toEqual({
+      name: "Name is required",
+      organization: "Organization is required",
+      email: "Email is required",
+      notes: "Notes are required",
+    });
+    expect(isInquiryReady(EMPTY_INQUIRY_DRAFT)).toBe(false);
+  });
+
+  it("rejects a malformed email", () => {
+    const errors = inquiryFieldErrors({ ...complete, email: "not-an-email" });
+    expect(errors.email).toBe("Email must be valid");
+    expect(isInquiryReady({ ...complete, email: "not-an-email" })).toBe(false);
+  });
+
+  it("holds at the length boundaries", () => {
+    const atMax = {
+      ...complete,
+      name: "n".repeat(MAX_CONTACT_NAME_LENGTH),
+      organization: "o".repeat(MAX_CONTACT_ORGANIZATION_LENGTH),
+      notes: "x".repeat(MAX_CONTACT_NOTES_LENGTH),
+    };
+    expect(isInquiryReady(atMax)).toBe(true);
+    expect(
+      inquiryFieldErrors({ ...atMax, name: "n".repeat(MAX_CONTACT_NAME_LENGTH + 1) })
+        .name,
+    ).toBe("Name is too long");
+  });
+
+  it("treats the deadline as optional", () => {
+    expect(isInquiryReady({ ...complete, deadline: "" })).toBe(true);
+    expect(isInquiryReady({ ...complete, deadline: "Friday" })).toBe(true);
+  });
+
+  it("agrees with the submit path it shares a schema with", () => {
+    // What the form says while you type cannot drift from what it says when
+    // you send, because both run the same schema.
+    expect(() => parseInquirySubmission(complete)).not.toThrow();
+    expect(() =>
+      parseInquirySubmission({ ...complete, email: "not-an-email" }),
+    ).toThrow("Email must be valid");
+  });
+
+  it("names the required fields in form order", () => {
+    expect(REQUIRED_INQUIRY_FIELDS).toEqual([
+      "name",
+      "organization",
+      "email",
+      "notes",
+    ]);
   });
 });
